@@ -32,7 +32,7 @@ def _champ_to_champ_id(champ):
 
 
 def get_random_champs_weighted(N):
-    ceiled_N = math.ceil(N/5) * 5
+    ceiled_N = math.ceil(N / 5) * 5
     champs_by_role = {role: [] for role in roles.ROLES}
     champs_by_occurence = {}
     inverse_champs_by_occurence = {}
@@ -73,7 +73,7 @@ def make_grid_from_champs(champs):
         height = 5
     else:
         width = math.ceil(math.sqrt(len(champs)))
-        height = math.floor(math.sqrt(len(champs)))
+        height = round(math.sqrt(len(champs)))
 
     grid = Image.new('RGB', (width * IMAGE_SIZE, height * IMAGE_SIZE))
     for index, img in enumerate(champ_images):

@@ -42,12 +42,15 @@ async def get(ctx, N="40"):
     try:
         N = int(N)
     except:
-        await ctx.send("Send a whole number between 1 & 170")
+        await ctx.send("Send a whole number between 1 & 120")
         return
-    if N < 1 or N > 170:
+    if N == 1337:
         wyns = random_wyns.copy()
         random.shuffle(wyns)
         await ctx.send(wyns[0])
+        return
+    if N < 1 or N > 120:
+        await ctx.send("Send a whole number between 1 & 120")
         return
     champs = get_random_champs_weighted(N)
     img = make_grid_from_champs(champs)
