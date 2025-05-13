@@ -1,15 +1,25 @@
+import enum
 import os
-import random 
+import random
 
 import discord
 
 from discord.ext import commands
 from dotenv import load_dotenv
 from io import BytesIO
+from typing import List, Tuple
 
-from champs.random_champ_weighted import get_random_champs_weighted, make_grid_from_champs
+from champs import filters
+from champs import random_champ_weighted
 
 load_dotenv()
+
+
+_USAGE = """After the command, write the desired number of champs to get a random selection of champs even across roles.
+If no number is given, 40 are returned.
+You can also add filters, e.g. role, class. For example: champsget 3 assassin jungle.
+"""
+
 
 bot = commands.Bot(command_prefix="champs", intents=discord.Intents.all())
 
@@ -33,28 +43,94 @@ random_wyns = [
 ]
 
 
-@bot.command()
-async def get(ctx, N="40"):
-    special = False
-    if N == "0.5":
-        N = "1"
-        special = True
+def _get_random_wyn():
+    wyns = random_wyns.copy()
+    random.shuffle(wyns)
+    return wyns[0]
+
+
+def _is_int(N):
     try:
-        N = int(N)
+        int(N)
+        return True
     except:
-        await ctx.send("Send a whole number between 1 & 120")
-        return
-    if N == 1337:
-        wyns = random_wyns.copy()
-        random.shuffle(wyns)
-        await ctx.send(wyns[0])
-        return
+        return False
+
+class Special(enum.Enum):
+    WYN = 0
+    HALF = 1
+
+    @staticmethod
+    def get_special(s: str):
+        if s == "1337":
+            return Special.WYN
+        if s == "0.5":
+            return Special.HALF
+        return None
+    
+
+class BotArgsError(Exception):
+    pass
+
+
+def _parse_get_args(args) -> Tuple[int, List, Special]:
+    if len(args) == 0:
+        return 40, [], None, []
+
+    N = None
+    filter_strs = []
+    special = Special.get_special(args[0]) or None
+    unrecognised_arguments = []
+
+    if special is Special.HALF:
+        N = 1
+
+    for arg in args:
+        if _is_int(arg) and N is None:
+            N = int(arg)
+        elif filters.is_valid_filter(arg):
+            filter_strs.append(arg)
+        else:
+            unrecognised_arguments.append(arg)
+    
+    if N is None and not filter_strs and unrecognised_arguments:
+        raise BotArgsError("No recognised arguments were passed.")
+    
     if N < 1 or N > 120:
-        await ctx.send("Send a whole number between 1 & 120")
+        raise BotArgsError("Number must be a whole number between 1 & 120.")
+
+    if N is None:
+        N = 40
+
+    return N, filter_strs, special, unrecognised_arguments
+
+
+@bot.command()
+async def get(ctx, *args):
+    try:
+        N, filter_strs, special, unrecognised_arguments = _parse_get_args(args)
+    except BotArgsError as exc:
+        await ctx.send(f"{str(exc)}\n\n{_USAGE}")
         return
-    champs = get_random_champs_weighted(N)
-    img = make_grid_from_champs(champs)
-    if special:
+    if special is Special.WYN:
+        await ctx.send(_get_random_wyn())
+        return
+    if unrecognised_arguments and not special:
+        await ctx.send(f"Unrecognised arguments: {', '.join(unrecognised_arguments)}.")
+
+    if filter_strs:
+        champs = random_champ_weighted.get_random_champs_with_filters(N=N, filter_strs=filter_strs)
+        if not champs:
+            await ctx.send("No champions found.")
+            return
+        img = random_champ_weighted.make_grid_from_champs(champs, force_line=True)
+    else:
+        selected_champs_by_role = random_champ_weighted.get_random_champs_by_role_weighted(N=N)
+        img = random_champ_weighted.make_grid_from_champs_by_role(selected_champs_by_role)
+        champs = sum(selected_champs_by_role.values(), start=[])
+
+
+    if special is Special.HALF:
         champs = [champ[:len(champ)//2] for champ in champs]
         img = img.crop((0, 0, 30, 60))
     img_bytes = BytesIO()
