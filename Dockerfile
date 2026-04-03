@@ -6,10 +6,10 @@ RUN mkdir -p /app && chown champsget:champsget /app
 USER champsget
 WORKDIR /app
 
-ADD pyproject.toml poetry.lock README.md .
+ADD pyproject.toml poetry.lock README.md ./
 ADD champs champs
 RUN python3 -m pip install . \
-    && (python3 -m pip show opencv-python >/dev/null 2>&1 && python3 -m pip uninstall -y opencv-python || true) \
-    && python3 -m pip install --no-cache-dir --upgrade opencv-python-headless
+    && python3 -m pip uninstall -y opencv-python opencv-contrib-python opencv-python-headless || true \
+    && python3 -m pip install --no-cache-dir --force-reinstall --no-deps opencv-python-headless==4.13.0.92
 
 CMD python3 -m champs
