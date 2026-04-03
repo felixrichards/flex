@@ -126,7 +126,7 @@ class GenderFilter(Filter):
         "NON-BINARY": "OTHER",
         "UNKNOWN": "OTHER",
         "AGENDER": "OTHER",
-        "AMBIGUOUS": "OTHER"
+        "AMBIGUOUS": "OTHER",
         "NONE": "OTHER",
         "THEY": "OTHER",
         "THEM": "OTHER",
