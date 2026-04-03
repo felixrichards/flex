@@ -10,6 +10,10 @@ CHAMPS_PLAYERS_MANIFEST_FILENAME = "champs_players_manifest.json"
 with open(os.path.join(RESOURCE_DIR, CHAMPS_PLAYERS_MANIFEST_FILENAME), "r") as f:
     CHAMPS_PLAYERS_MANIFEST = json.load(f)
 
+PLAYER_TO_NAME_FILENAME = "player_to_name.json"
+with open(os.path.join(RESOURCE_DIR, PLAYER_TO_NAME_FILENAME), "r") as f:
+    PLAYER_TO_NAME = json.load(f)
+
 
 CHAMPS_WITH_ROLE_DATA_FILENAME = "champs_with_roles.txt"
 with open(os.path.join(RESOURCE_DIR, CHAMPS_WITH_ROLE_DATA_FILENAME), "r") as f:
