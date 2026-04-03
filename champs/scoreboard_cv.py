@@ -50,11 +50,12 @@ def normalize_path(path: str | Path) -> str:
     return str(Path(os.path.expanduser(str(path))).resolve())
 
 
-def preprocess_text_crop(image: cv2.typing.MatLike) -> cv2.typing.MatLike:
+def preprocess_text_crop(image: cv2.typing.MatLike, invert: bool = False) -> cv2.typing.MatLike:
     upscaled = cv2.resize(image, None, fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
     gray = cv2.cvtColor(upscaled, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (3, 3), 0)
-    _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    thresh_mode = cv2.THRESH_BINARY_INV if invert else cv2.THRESH_BINARY
+    _, thresh = cv2.threshold(blurred, 0, 255, thresh_mode + cv2.THRESH_OTSU)
     return thresh
 
 
@@ -89,8 +90,8 @@ class RapidPostExtractor:
             )
         return boxes
 
-    def read_crop_texts(self, image: cv2.typing.MatLike) -> list[str]:
-        processed = preprocess_text_crop(image)
+    def read_crop_texts(self, image: cv2.typing.MatLike, invert: bool = False) -> list[str]:
+        processed = preprocess_text_crop(image, invert=invert)
         return [box.text for box in self.read_boxes(processed) if box.text]
 
 
@@ -127,6 +128,22 @@ def parse_kda_text(text: str) -> str:
     if not match:
         raise ValueError(f"Could not parse KDA from {text!r}")
     return "/".join(match.groups())
+
+
+def parse_kda_from_texts(texts: list[str]) -> str | None:
+    if not texts:
+        return None
+    combined = " ".join(texts)
+    try:
+        return parse_kda_text(combined)
+    except ValueError:
+        pass
+
+    tokens = re.findall(r"\d+|/", combined)
+    for idx in range(len(tokens) - 4):
+        if tokens[idx].isdigit() and tokens[idx + 1] == "/" and tokens[idx + 2].isdigit() and tokens[idx + 3] == "/" and tokens[idx + 4].isdigit():
+            return f"{tokens[idx]}/{tokens[idx + 2]}/{tokens[idx + 4]}"
+    return None
 
 
 def collect_kda_rows(boxes: list[OCRBox], width: int) -> list[tuple[float, str]]:
@@ -289,7 +306,18 @@ def build_team(
             player_vocab,
             champion_vocab,
         )
-        team.append({"player": player, "champion": champion, "kda": kda})
+        final_kda = kda
+        if re.fullmatch(r"0/\d+/0", kda):
+            kda_crop = image[
+                max(0, int(row_y - row_gap * 0.30)) : min(image.shape[0], int(row_y + row_gap * 0.30)),
+                int(width * 0.64) : int(width * 0.83),
+            ]
+            refined_kda = parse_kda_from_texts(extractor.read_crop_texts(kda_crop))
+            if refined_kda and refined_kda != kda:
+                refined_kda_inv = parse_kda_from_texts(extractor.read_crop_texts(kda_crop, invert=True))
+                if refined_kda_inv == refined_kda:
+                    final_kda = refined_kda
+        team.append({"player": player, "champion": champion, "kda": final_kda})
     return team
 
 
@@ -311,7 +339,6 @@ def detect_post_match(
 
     top_team = build_team(image, extractor, full_boxes, image.shape[1], top_rows, player_vocab, champion_vocab)
     bottom_team = build_team(image, extractor, full_boxes, image.shape[1], bottom_rows, player_vocab, champion_vocab)
-    print(top_team, bottom_team)
     top_is_win = result_is_victory(full_boxes)
     return {
         "win": top_team if top_is_win else bottom_team,

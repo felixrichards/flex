@@ -1,8 +1,10 @@
 import enum
+import json
 import os
 import random
 import asyncio
 import tempfile
+from datetime import datetime, timezone
 
 import discord
 
@@ -16,6 +18,10 @@ from champs.discord_views import ParseFeedbackView
 from champs import random_champ_weighted
 from champs import secret
 from champs import scoreboard_cv
+from champs import utils
+from champs import db
+from champs.payloads.match import Match
+from champs.json_payload import extract_json_payload
 
 load_dotenv()
 
@@ -27,6 +33,7 @@ You can also add filters, e.g. role, class. For example: champsget 3 assassin ju
 
 
 bot = commands.Bot(command_prefix="champs", intents=discord.Intents.all())
+DB_PATH = os.getenv("CHAMPS_DB_PATH", "/app/data/champs.db")
 
 random_wyns = [
     "wyn is a fucking moron",
@@ -153,15 +160,31 @@ async def get(ctx, *args):
     await ctx.send(", ".join(champs), file=file)
 
 
-def _format_scoreboard_message(data):
-    lines = ["**WIN**"]
-    for row in data["win"]:
-        lines.append(f"- {row['player']} | {row['champion']} | {row['kda']}")
-    lines.append("")
-    lines.append("**LOSE**")
-    for row in data["lose"]:
-        lines.append(f"- {row['player']} | {row['champion']} | {row['kda']}")
-    return "\n".join(lines)
+def _format_scoreboard_message(match: Match):
+    payload = json.dumps(match.model_dump(mode="json", exclude={"timestamp"}), indent=2, ensure_ascii=True)
+    return f"```json\n{payload}\n```"
+
+
+def _parse_match_payload(payload) -> Match | None:
+    try:
+        return Match.model_validate(payload)
+    except Exception:
+        return None
+
+
+async def _store_match_from_message(interaction: discord.Interaction) -> None:
+    payload = extract_json_payload(interaction.message.content or "")
+    if payload is None:
+        return
+    match = _parse_match_payload(payload)
+    if match is None:
+        return
+    match = match.model_copy(update={"timestamp": datetime.now(timezone.utc)})
+    inserted = await asyncio.to_thread(db.insert_match, DB_PATH, match)
+    if inserted:
+        await interaction.followup.send("Saved to match history.", ephemeral=True)
+    else:
+        await interaction.followup.send("Match already stored.", ephemeral=True)
 
 
 @bot.command()
@@ -195,8 +218,35 @@ async def match(ctx):
         except OSError:
             pass
 
-    view = ParseFeedbackView(requester_id=ctx.author.id)
-    message = await ctx.send(_format_scoreboard_message(result), view=view)
+    result = utils.apply_player_name_map(result)
+    match = Match.model_validate(result)
+    view = ParseFeedbackView(requester_id=ctx.author.id, on_confirm=_store_match_from_message)
+    message = await ctx.send(_format_scoreboard_message(match), view=view)
     view.message = message
 
+
+@bot.event
+async def on_message(message: discord.Message):
+    if message.author.bot:
+        return
+
+    if message.reference and message.reference.resolved:
+        referenced = message.reference.resolved
+        if isinstance(referenced, discord.Message) and referenced.author == bot.user:
+            payload = extract_json_payload(message.content)
+            if payload is None:
+                await bot.process_commands(message)
+                return
+            match = _parse_match_payload(payload)
+            if match is None:
+                await message.channel.send("Scoreboard JSON not recognized. Expect win/lose arrays of 5 rows each.")
+                return
+            match = match.model_copy(update={"timestamp": datetime.now(timezone.utc)})
+            await referenced.edit(content=_format_scoreboard_message(match))
+            await message.channel.send("Updated.")
+            return
+
+    await bot.process_commands(message)
+
+db.init_db(DB_PATH)
 bot.run(os.getenv("DISCORD_TOKEN"))

@@ -2,9 +2,10 @@ import discord
 
 
 class ParseFeedbackView(discord.ui.View):
-    def __init__(self, requester_id: int):
+    def __init__(self, requester_id: int, on_confirm=None):
         super().__init__(timeout=120)
         self.requester_id = requester_id
+        self._on_confirm = on_confirm
         self._resolved = False
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -29,6 +30,11 @@ class ParseFeedbackView(discord.ui.View):
         content = (interaction.message.content or "").rstrip()
         content = f"{content}\n\n{status}" if content else status
         await interaction.response.edit_message(content=content, view=self)
+        if is_correct and self._on_confirm:
+            try:
+                await self._on_confirm(interaction)
+            except Exception:
+                pass
 
     @discord.ui.button(label="Correct", style=discord.ButtonStyle.success, emoji="✅")
     async def correct(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:

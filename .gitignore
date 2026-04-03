@@ -1,4 +1,8 @@
 .env
 .python-version
+.codex
+.venv
+elo/
 *.pyc
 misc
+.vscode/
