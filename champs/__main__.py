@@ -1,6 +1,8 @@
 import enum
 import os
 import random
+import asyncio
+import tempfile
 
 import discord
 
@@ -10,8 +12,10 @@ from io import BytesIO
 from typing import List, Tuple
 
 from champs import filters
+from champs.discord_views import ParseFeedbackView
 from champs import random_champ_weighted
 from champs import secret
+from champs import scoreboard_cv
 
 load_dotenv()
 
@@ -147,5 +151,52 @@ async def get(ctx, *args):
     img_bytes.seek(0)
     file = discord.file.File(img_bytes, filename='champs.png')
     await ctx.send(", ".join(champs), file=file)
+
+
+def _format_scoreboard_message(data):
+    lines = ["**WIN**"]
+    for row in data["win"]:
+        lines.append(f"- {row['player']} | {row['champion']} | {row['kda']}")
+    lines.append("")
+    lines.append("**LOSE**")
+    for row in data["lose"]:
+        lines.append(f"- {row['player']} | {row['champion']} | {row['kda']}")
+    return "\n".join(lines)
+
+
+@bot.command()
+async def match(ctx):
+    if not ctx.message.attachments:
+        await ctx.send("Attach a scoreboard image and run `champsmatch`.")
+        return
+
+    attachment = ctx.message.attachments[0]
+    try:
+        payload = await attachment.read()
+    except Exception as exc:
+        await ctx.send(f"Could not read attachment: {exc}")
+        return
+
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+        tmp.write(payload)
+        tmp_path = tmp.name
+
+    try:
+        result = await asyncio.to_thread(
+            scoreboard_cv.detect_post_match,
+            tmp_path,
+        )
+    except Exception as exc:
+        await ctx.send(f"Scoreboard parse failed: {exc}")
+        return
+    finally:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+
+    view = ParseFeedbackView(requester_id=ctx.author.id)
+    message = await ctx.send(_format_scoreboard_message(result), view=view)
+    view.message = message
 
 bot.run(os.getenv("DISCORD_TOKEN"))

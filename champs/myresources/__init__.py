@@ -1,8 +1,14 @@
 import glob
 import os
+import json
 from PIL import Image
 
 RESOURCE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+CHAMPS_PLAYERS_MANIFEST_FILENAME = "champs_players_manifest.json"
+with open(os.path.join(RESOURCE_DIR, CHAMPS_PLAYERS_MANIFEST_FILENAME), "r") as f:
+    CHAMPS_PLAYERS_MANIFEST = json.load(f)
 
 
 CHAMPS_WITH_ROLE_DATA_FILENAME = "champs_with_roles.txt"
