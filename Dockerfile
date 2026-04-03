@@ -8,6 +8,8 @@ WORKDIR /app
 
 ADD pyproject.toml poetry.lock README.md .
 ADD champs champs
-RUN python3 -m pip install .
+RUN python3 -m pip install . \
+    && (python3 -m pip show opencv-python >/dev/null 2>&1 && python3 -m pip uninstall -y opencv-python || true) \
+    && python3 -m pip install --no-cache-dir --upgrade opencv-python-headless
 
 CMD python3 -m champs
