@@ -107,6 +107,7 @@ class GenderFilter(Filter):
         "M": "MALE",
         "MEN": "MALE",
         "BOYS": "MALE",
+        "LADS": "MALE",
         "FEMALE": "FEMALE", 
         "FEMALES": "FEMALE",
         "F": "FEMALE",
