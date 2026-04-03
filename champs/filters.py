@@ -173,7 +173,7 @@ class ComplexionFilter(Filter):
 
 
 def parse_filters(filter_strs):
-    filter_objs: List[Filter] = [RoleFilter(), ClassFilter(), DamageTypeFilter(), LgbtFilter(), ComplexionFilter()]
+    filter_objs: List[Filter] = [RoleFilter(), ClassFilter(), DamageTypeFilter(), GenderFilter(), LgbtFilter(), ComplexionFilter()]
     for filter_obj in filter_objs:
         for filter_str in filter_strs:
             if filter_obj.is_valid(filter_str):
@@ -181,7 +181,7 @@ def parse_filters(filter_strs):
     return filter_objs
 
 def is_valid_filter(filter_str):
-    filter_classes = [RoleFilter, ClassFilter, GenderFilter, DamageTypeFilter, LgbtFilter, ComplexionFilter()]
+    filter_classes = [RoleFilter, ClassFilter, DamageTypeFilter, GenderFilter, LgbtFilter, ComplexionFilter()]
     for filter_class in filter_classes:
         if filter_class.is_valid(filter_str):
             return True
