@@ -100,6 +100,33 @@ class DamageTypeFilter(Filter):
         return x.upper()
 
 
+class GenderFilter(Filter):
+    filter_strs_to_filters = {
+        "MALE": "MALE",
+        "MALES": "MALE",
+        "M": "MALE",
+        "MEN": "MALE",
+        "BOYS": "MALE",
+        "FEMALE": "FEMALE", 
+        "FEMALES": "FEMALE",
+        "F": "FEMALE",
+        "WOMEN": "FEMALE",
+        "GIRLS": "FEMALE",
+        "OTHER": "OTHER",
+        "NONBINARY": "OTHER",
+        "NON-BINARY": "OTHER",
+        "NEUTRAL": "OTHER",
+        "AGENDER": "OTHER",
+        "AMBIGUOUS": "OTHER"
+    }
+
+    filter_to_champ = myresources.CHAMPS_BY_GENDER
+
+    @staticmethod
+    def process_filter_str(x: str):
+        return x.upper()
+
+
 class LgbtFilter(Filter):
     filter_strs_to_filters = {
         "LGBT": "LGBT",

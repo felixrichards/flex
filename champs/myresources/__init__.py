@@ -50,6 +50,14 @@ with open(os.path.join(RESOURCE_DIR, CLASSES_WITH_CHAMP_DATA_FILENAME), "r") as 
         CHAMPS_BY_CLASS[league_class] = champs
 
 
+CHAMPS_BY_GENDER_FILENAME = "champs_by_gender.txt"
+with open(os.path.join(RESOURCE_DIR, CHAMPS_BY_GENDER_FILENAME), "r") as f:
+    CHAMPS_BY_GENDER = {}
+    for data in f.read().split('\n'):
+        gender_type, champs = data.split("\t")[0], data.split("\t")[1].split(",")
+        CHAMPS_BY_GENDER[gender_type] = champs
+
+
 CHAMPS_BY_LGBT_FILENAME = "champs_by_lgbt.txt"
 with open(os.path.join(RESOURCE_DIR, CHAMPS_BY_LGBT_FILENAME), "r") as f:
     CHAMPS_BY_LGBT = {}
