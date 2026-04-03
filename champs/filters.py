@@ -103,16 +103,14 @@ class DamageTypeFilter(Filter):
 class GenderFilter(Filter):
     filter_strs_to_filters = {
         "MALE": "MALE",
-        "MALES": "MALE",
         "M": "MALE",
         "MEN": "MALE",
-        "BOYS": "MALE",
-        "LADS": "MALE",
+        "BOY": "MALE",
+        "LAD": "MALE",
         "FEMALE": "FEMALE", 
-        "FEMALES": "FEMALE",
         "F": "FEMALE",
         "WOMEN": "FEMALE",
-        "GIRLS": "FEMALE",
+        "GIRL": "FEMALE",
         "OTHER": "OTHER",
         "NONBINARY": "OTHER",
         "NON-BINARY": "OTHER",
@@ -122,6 +120,12 @@ class GenderFilter(Filter):
     }
 
     filter_to_champ = myresources.CHAMPS_BY_GENDER
+
+    def __init__(self):
+        self.filter_strs_to_filters.update(
+            {f"{s}S": v for s, v in self.filter_strs_to_filters.items()}
+        )
+        super().__init__()
 
     @staticmethod
     def process_filter_str(x: str):
