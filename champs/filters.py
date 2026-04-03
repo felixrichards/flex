@@ -181,7 +181,7 @@ def parse_filters(filter_strs):
     return filter_objs
 
 def is_valid_filter(filter_str):
-    filter_classes = [RoleFilter, ClassFilter, DamageTypeFilter, LgbtFilter, ComplexionFilter()]
+    filter_classes = [RoleFilter, ClassFilter, GenderFilter, DamageTypeFilter, LgbtFilter, ComplexionFilter()]
     for filter_class in filter_classes:
         if filter_class.is_valid(filter_str):
             return True
