@@ -1,6 +1,7 @@
 import asyncio
 from types import SimpleNamespace
 
+from champs import match
 from champs import player
 
 
@@ -87,3 +88,62 @@ def test_handle_match_linkdiscord_username_resolves_to_actual_name(monkeypatch) 
 
     assert calls == [(4321, "Felix")]
     assert ctx.messages == ["Linked Discord user `4321` -> player `Felix`"]
+
+
+def test_handle_on_message_corrected_payload_is_saved(monkeypatch) -> None:
+    class _FakeDiscordMessage:
+        def __init__(self, message_id: int, author, content: str = "") -> None:
+            self.id = message_id
+            self.author = author
+            self.content = content
+            self.edited_content = None
+
+        async def edit(self, content=None, view=None):
+            self.edited_content = content
+
+    class _FakeChannel:
+        def __init__(self, channel_id: int) -> None:
+            self.id = channel_id
+            self.sent: list[str] = []
+
+        async def send(self, message: str) -> None:
+            self.sent.append(message)
+
+    class _FakeIncomingMessage:
+        def __init__(self, author, referenced, channel) -> None:
+            self.author = author
+            self.reference = SimpleNamespace(resolved=referenced)
+            self.content = "```json\n{}\n```"
+            self.channel = channel
+
+    async def _fake_to_thread(func, *args, **kwargs):
+        return func(*args, **kwargs)
+
+    parsed_match = object()
+
+    monkeypatch.setattr(match.discord, "Message", _FakeDiscordMessage)
+    monkeypatch.setattr(match.asyncio, "to_thread", _fake_to_thread)
+    monkeypatch.setattr(match, "extract_json_payload", lambda _content: {"win": [], "lose": []})
+    monkeypatch.setattr(match, "_parse_match_payload", lambda _payload: parsed_match)
+    monkeypatch.setattr(match.db, "resolve_match_names", lambda _db_path, parsed: parsed)
+    monkeypatch.setattr(match, "_format_scoreboard_message", lambda _m: "formatted scoreboard")
+
+    async def _fake_save(_db_path, _match, channel_id=None):
+        assert channel_id == 55
+        return True, "Saved to match history."
+
+    monkeypatch.setattr(match, "_save_match_to_db", _fake_save)
+
+    bot_user = SimpleNamespace(id=7, bot=True)
+    referenced = _FakeDiscordMessage(message_id=999, author=bot_user, content="old")
+    channel = _FakeChannel(channel_id=55)
+    incoming_author = SimpleNamespace(bot=False)
+    incoming = _FakeIncomingMessage(author=incoming_author, referenced=referenced, channel=channel)
+    bot = SimpleNamespace(user=bot_user)
+
+    handled = asyncio.run(match.handle_on_message(incoming, bot, "/tmp/test.db"))
+
+    assert handled is True
+    assert referenced.edited_content == "formatted scoreboard"
+    assert channel.sent[-1].startswith("Updated and saved.")
+    assert 999 not in match.PENDING_MATCHES

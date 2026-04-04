@@ -57,21 +57,26 @@ async def _store_match_from_message(interaction: discord.Interaction, db_path: s
     if match is None:
         await interaction.followup.send("No pending parsed match found for this message.", ephemeral=True)
         return
-    match = match.model_copy(update={"timestamp": datetime.now(timezone.utc)})
-    inserted = await asyncio.to_thread(db.insert_match, db_path, match)
+    inserted, response = await _save_match_to_db(db_path, match, channel_id=interaction.channel.id if interaction.channel else None)
     if inserted:
-        channel_id = interaction.channel.id if interaction.channel else None
-        fearless_message = ""
-        if channel_id is not None:
-            champions = [row.champion for row in match.win + match.lose]
-            _, fearless_message = fearless.record_match_champions(channel_id, champions)
         PENDING_MATCHES.pop(interaction.message.id, None)
-        response = "Saved to match history."
-        if fearless_message:
-            response = f"{response}\n{fearless_message}"
-        await interaction.followup.send(response, ephemeral=True)
-    else:
-        await interaction.followup.send("Match already stored.", ephemeral=True)
+    await interaction.followup.send(response, ephemeral=True)
+
+
+async def _save_match_to_db(db_path: str, match: Match, channel_id: int | None = None) -> tuple[bool, str]:
+    stamped = match.model_copy(update={"timestamp": datetime.now(timezone.utc)})
+    inserted = await asyncio.to_thread(db.insert_match, db_path, stamped)
+    if not inserted:
+        return False, "Match already stored."
+
+    fearless_message = ""
+    if channel_id is not None:
+        champions = [row.champion for row in stamped.win + stamped.lose]
+        _, fearless_message = fearless.record_match_champions(channel_id, champions)
+    response = "Saved to match history."
+    if fearless_message:
+        response = f"{response}\n{fearless_message}"
+    return True, response
 
 
 async def _append_correction_prompt(interaction: discord.Interaction) -> str:
@@ -191,10 +196,18 @@ async def handle_on_message(message: discord.Message, bot, db_path: str) -> bool
             if match is None:
                 await message.channel.send("Scoreboard JSON not recognized. Expect win/lose arrays of 5 rows each.")
                 return True
-            match = match.model_copy(update={"timestamp": datetime.now(timezone.utc)})
             match = await asyncio.to_thread(db.resolve_match_names, db_path, match)
             PENDING_MATCHES[referenced.id] = match
             await referenced.edit(content=_format_scoreboard_message(match))
-            await message.channel.send("Updated.")
+            inserted, response = await _save_match_to_db(
+                db_path,
+                match,
+                channel_id=message.channel.id if message.channel else None,
+            )
+            if inserted:
+                PENDING_MATCHES.pop(referenced.id, None)
+                await message.channel.send(f"Updated and saved.\n{response}")
+            else:
+                await message.channel.send(f"Updated.\n{response}")
             return True
     return False
