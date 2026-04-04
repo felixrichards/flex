@@ -92,7 +92,7 @@ def _ensure_players_exist(db_path: str, names: Iterable[str]) -> int:
     return added
 
 
-def _reset_history_and_ratings(db_path: str) -> tuple[int, int, int]:
+def _reset_history_and_ratings(db_path: str, *, reset_ratings: bool = True) -> tuple[int, int, int]:
     engine = db._engine(db_path)
     with Session(engine) as session:
         match_row_count = len(session.scalars(select(MatchPlayerRecord.id)).all())
@@ -101,8 +101,9 @@ def _reset_history_and_ratings(db_path: str) -> tuple[int, int, int]:
 
         session.execute(delete(MatchPlayerRecord))
         session.execute(delete(MatchRecord))
-        for player in player_rows:
-            player.rating = db.INITIAL_RATING
+        if reset_ratings:
+            for player in player_rows:
+                player.rating = db.INITIAL_RATING
         session.commit()
     return match_count, match_row_count, len(player_rows)
 
@@ -341,17 +342,11 @@ def main() -> None:
             db.set_player_preferred_role(args.db_path, username, role)
             print(f"Set preferred role: {username} -> {role.upper()}")
 
-    if args.reset_history:
+    if args.reset_history or args.soft_reset:
         backup_path = _backup_db_file(args.db_path)
         print(f"Created DB backup: {backup_path}")
-        deleted_matches, deleted_match_rows, reset_players = _reset_history_and_ratings(args.db_path)
-        print(f"Deleted matches: {deleted_matches}")
-        print(f"Deleted match rows: {deleted_match_rows}")
-        print(f"Reset player ratings: {reset_players}")
 
     if args.soft_reset:
-        backup_path = _backup_db_file(args.db_path)
-        print(f"Created DB backup: {backup_path}")
         updated_players, total_delta = _soft_reset_ratings(
             args.db_path,
             factor=args.soft_reset_factor,
@@ -361,6 +356,19 @@ def main() -> None:
             f"Soft reset applied to {updated_players} player(s). "
             f"factor={args.soft_reset_factor:.3f}, target={args.soft_reset_target}, total_elo_shift={total_delta:.0f}"
         )
+
+    if args.reset_history:
+        preserve_compressed_ratings = bool(args.soft_reset)
+        deleted_matches, deleted_match_rows, reset_players = _reset_history_and_ratings(
+            args.db_path,
+            reset_ratings=not preserve_compressed_ratings,
+        )
+        print(f"Deleted matches: {deleted_matches}")
+        print(f"Deleted match rows: {deleted_match_rows}")
+        if preserve_compressed_ratings:
+            print(f"Preserved current player ratings after history reset: {reset_players}")
+        else:
+            print(f"Reset player ratings: {reset_players}")
 
     if args.input_file:
         with open(args.input_file, "r", encoding="utf-8") as handle:

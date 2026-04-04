@@ -201,6 +201,42 @@ def test_reset_history_and_ratings_clears_matches_and_resets_player_elo(tmp_path
     assert all(int(player.rating) == db.INITIAL_RATING for player in players)
 
 
+def test_reset_history_without_rating_reset_preserves_current_ratings(tmp_path) -> None:
+    db_path = str(tmp_path / "manual_elo_reset_preserve_ratings.db")
+    db.init_db(db_path)
+
+    db.set_player_mapping(db_path, "W1", "W1")
+    db.set_player_mapping(db_path, "W2", "W2")
+    db.set_player_mapping(db_path, "W3", "W3")
+    db.set_player_mapping(db_path, "W4", "W4")
+    db.set_player_mapping(db_path, "W5", "W5")
+    db.set_player_mapping(db_path, "L1", "L1")
+    db.set_player_mapping(db_path, "L2", "L2")
+    db.set_player_mapping(db_path, "L3", "L3")
+    db.set_player_mapping(db_path, "L4", "L4")
+    db.set_player_mapping(db_path, "L5", "L5")
+
+    match = _elo_match(["W1", "W2", "W3", "W4", "W5"], ["L1", "L2", "L3", "L4", "L5"])
+    assert db.insert_match(db_path, match) is True
+    manual_elo._soft_reset_ratings(db_path, factor=0.2, target=1000)
+
+    deleted_matches, deleted_rows, preserved_players = manual_elo._reset_history_and_ratings(
+        db_path,
+        reset_ratings=False,
+    )
+    assert deleted_matches == 1
+    assert deleted_rows == 10
+    assert preserved_players >= 10
+
+    engine = db._engine(db_path)
+    with Session(engine) as session:
+        assert len(session.scalars(select(MatchRecord)).all()) == 0
+        assert len(session.scalars(select(MatchPlayerRecord)).all()) == 0
+        players = session.scalars(select(PlayerRecord)).all()
+    assert players
+    assert any(int(player.rating) != db.INITIAL_RATING for player in players)
+
+
 def test_backup_db_file_creates_timestamped_copy(tmp_path) -> None:
     db_path = str(tmp_path / "manual_elo_backup.db")
     db.init_db(db_path)
