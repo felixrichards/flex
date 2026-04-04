@@ -2,7 +2,8 @@ from datetime import timezone
 
 import manual_elo
 from champs.db import db
-from champs.db.models import PlayerRecord
+from champs.db.models import MatchPlayerRecord, MatchRecord, PlayerRecord
+from champs.payloads import Match
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,6 +18,15 @@ def _match_payload(date: str) -> dict:
         "lose": [_row(f"l{i}") for i in range(5)],
         "date": date,
     }
+
+
+def _elo_match(win_names, lose_names) -> Match:
+    return Match.model_validate(
+        {
+            "win": [{"player": name, "champion": "Ezreal", "kda": "1/1/1"} for name in win_names],
+            "lose": [{"player": name, "champion": "Nami", "kda": "1/1/1"} for name in lose_names],
+        }
+    )
 
 
 def test_load_matches_uses_date_for_timestamp() -> None:
@@ -121,6 +131,7 @@ def test_should_print_ratings_only_for_rating_relevant_actions() -> None:
             input_file=None,
             players_file=None,
             recalculate=False,
+            reset_history=False,
             set_mapping=None,
             set_preferred_role=None,
             show_player_mappings=False,
@@ -128,6 +139,7 @@ def test_should_print_ratings_only_for_rating_relevant_actions() -> None:
             self.input_file = input_file
             self.players_file = players_file
             self.recalculate = recalculate
+            self.reset_history = reset_history
             self.set_mapping = set_mapping
             self.set_preferred_role = set_preferred_role
             self.show_player_mappings = show_player_mappings
@@ -135,6 +147,7 @@ def test_should_print_ratings_only_for_rating_relevant_actions() -> None:
     assert manual_elo._should_print_ratings(Args(show_player_mappings=True)) is False
     assert manual_elo._should_print_ratings(Args(players_file="players.json")) is True
     assert manual_elo._should_print_ratings(Args(recalculate=True)) is True
+    assert manual_elo._should_print_ratings(Args(reset_history=True)) is True
 
 
 def test_should_print_player_mappings_for_show_flag_or_players_file() -> None:
@@ -146,3 +159,35 @@ def test_should_print_player_mappings_for_show_flag_or_players_file() -> None:
     assert manual_elo._should_print_player_mappings(Args(players_file="players.json")) is True
     assert manual_elo._should_print_player_mappings(Args(show_player_mappings=True)) is True
     assert manual_elo._should_print_player_mappings(Args()) is False
+
+
+def test_reset_history_and_ratings_clears_matches_and_resets_player_elo(tmp_path) -> None:
+    db_path = str(tmp_path / "manual_elo_reset.db")
+    db.init_db(db_path)
+
+    db.set_player_mapping(db_path, "W1", "W1")
+    db.set_player_mapping(db_path, "W2", "W2")
+    db.set_player_mapping(db_path, "W3", "W3")
+    db.set_player_mapping(db_path, "W4", "W4")
+    db.set_player_mapping(db_path, "W5", "W5")
+    db.set_player_mapping(db_path, "L1", "L1")
+    db.set_player_mapping(db_path, "L2", "L2")
+    db.set_player_mapping(db_path, "L3", "L3")
+    db.set_player_mapping(db_path, "L4", "L4")
+    db.set_player_mapping(db_path, "L5", "L5")
+
+    match = _elo_match(["W1", "W2", "W3", "W4", "W5"], ["L1", "L2", "L3", "L4", "L5"])
+    assert db.insert_match(db_path, match) is True
+
+    deleted_matches, deleted_rows, reset_players = manual_elo._reset_history_and_ratings(db_path)
+    assert deleted_matches == 1
+    assert deleted_rows == 10
+    assert reset_players >= 10
+
+    engine = db._engine(db_path)
+    with Session(engine) as session:
+        assert len(session.scalars(select(MatchRecord)).all()) == 0
+        assert len(session.scalars(select(MatchPlayerRecord)).all()) == 0
+        players = session.scalars(select(PlayerRecord)).all()
+    assert players
+    assert all(int(player.rating) == db.INITIAL_RATING for player in players)

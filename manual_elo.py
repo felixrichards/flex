@@ -6,11 +6,11 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from champs.db import db
-from champs.db.models import MatchPlayerRecord, PlayerMappingRecord, PlayerRecord
+from champs.db.models import MatchPlayerRecord, MatchRecord, PlayerMappingRecord, PlayerRecord
 from champs.payloads import Match, PlayerMappingImport, PlayerMappingRow
 
 
@@ -89,6 +89,21 @@ def _ensure_players_exist(db_path: str, names: Iterable[str]) -> int:
             added += 1
         session.commit()
     return added
+
+
+def _reset_history_and_ratings(db_path: str) -> tuple[int, int, int]:
+    engine = db._engine(db_path)
+    with Session(engine) as session:
+        match_row_count = len(session.scalars(select(MatchPlayerRecord.id)).all())
+        match_count = len(session.scalars(select(MatchRecord.checksum)).all())
+        player_rows = session.scalars(select(PlayerRecord)).all()
+
+        session.execute(delete(MatchPlayerRecord))
+        session.execute(delete(MatchRecord))
+        for player in player_rows:
+            player.rating = db.INITIAL_RATING
+        session.commit()
+    return match_count, match_row_count, len(player_rows)
 
 
 def _print_ratings_table(db_path: str) -> None:
@@ -191,6 +206,7 @@ def _should_print_ratings(args) -> bool:
         args.input_file
         or args.players_file
         or args.recalculate
+        or args.reset_history
         or args.set_mapping
         or args.set_preferred_role
     )
@@ -227,6 +243,11 @@ def main() -> None:
         help="Rebuild all player ratings from full stored match history",
     )
     parser.add_argument(
+        "--reset-history",
+        action="store_true",
+        help="Delete all stored match history and reset all existing player ELO ratings to initial value.",
+    )
+    parser.add_argument(
         "--show-player-mappings",
         action="store_true",
         help="Show actual names, associated usernames, and preferred roles.",
@@ -237,13 +258,14 @@ def main() -> None:
         not args.input_file
         and not args.players_file
         and not args.recalculate
+        and not args.reset_history
         and not args.set_mapping
         and not args.set_preferred_role
         and not args.show_player_mappings
     ):
         raise ValueError(
             "Provide --input-file, --players-file, --recalculate, --set-mapping, "
-            "--set-preferred-role, --show-player-mappings, or a combination."
+            "--set-preferred-role, --reset-history, --show-player-mappings, or a combination."
         )
 
     db.init_db(args.db_path)
@@ -270,6 +292,12 @@ def main() -> None:
         for username, role in args.set_preferred_role:
             db.set_player_preferred_role(args.db_path, username, role)
             print(f"Set preferred role: {username} -> {role.upper()}")
+
+    if args.reset_history:
+        deleted_matches, deleted_match_rows, reset_players = _reset_history_and_ratings(args.db_path)
+        print(f"Deleted matches: {deleted_matches}")
+        print(f"Deleted match rows: {deleted_match_rows}")
+        print(f"Reset player ratings: {reset_players}")
 
     if args.input_file:
         with open(args.input_file, "r", encoding="utf-8") as handle:
