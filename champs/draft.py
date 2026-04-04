@@ -128,13 +128,12 @@ def _resolve_mapping_rule(identifier: str, state: _ResolverState) -> MappingRule
     if not token:
         return None
     token_key = token.casefold()
-    by_username = state.latest_mapping_by_username.get(token_key)
-    if by_username is not None:
-        return by_username
     canonical_name = state.canonical_name_by_casefold.get(token_key)
-    if canonical_name is None:
-        return None
-    return state.latest_mapping_by_name_casefold.get(canonical_name.casefold())
+    if canonical_name is not None:
+        by_name = state.latest_mapping_by_name_casefold.get(canonical_name.casefold())
+        if by_name is not None:
+            return by_name
+    return state.latest_mapping_by_username.get(token_key)
 
 
 def _resolve_player_identifier(identifier: str, state: _ResolverState) -> DraftPlayer | None:
@@ -143,11 +142,9 @@ def _resolve_player_identifier(identifier: str, state: _ResolverState) -> DraftP
         return None
 
     token_key = token.casefold()
-    mapped_name = state.latest_name_by_username.get(token_key)
-    if mapped_name:
-        canonical_name = mapped_name
-    else:
-        canonical_name = state.canonical_name_by_casefold.get(token_key, token)
+    canonical_name = state.canonical_name_by_casefold.get(token_key)
+    if canonical_name is None:
+        canonical_name = state.latest_name_by_username.get(token_key, token)
 
     name_key = canonical_name.casefold()
     elo = state.rating_by_name_casefold.get(name_key, db.INITIAL_RATING)

@@ -338,10 +338,23 @@ def get_player_mapping_overview_rows(
         if row.preferred_role:
             latest_role_by_name[row.name] = (row.preferred_role, row.secondary_role)
 
+    output_with_discord: list[PlayerMappingOverviewRow] = []
+    for name in sorted(usernames_by_name, key=str.casefold):
+        usernames = tuple(sorted(usernames_by_name[name], key=str.casefold))
+        primary_role, secondary_role = latest_role_by_name.get(name, (None, None))
+        output_with_discord.append(
+            PlayerMappingOverviewRow(
+                name=name,
+                usernames=usernames,
+                primary_role=primary_role,
+                secondary_role=secondary_role,
+                discord_user_ids=tuple(),
+            )
+        )
+
+    row_by_name_key = {row.name.casefold(): row for row in output_with_discord}
     names_by_username: dict[str, set[str]] = {}
-    row_by_name: dict[str, PlayerMappingOverviewRow] = {}
-    for row in output:
-        row_by_name[row.name.casefold()] = row
+    for row in output_with_discord:
         for username in row.usernames:
             names_by_username.setdefault(username, set()).add(row.name)
 
@@ -352,7 +365,7 @@ def get_player_mapping_overview_rows(
     discord_ids_by_name: dict[str, set[str]] = {}
     for row in discord_rows:
         identifier = row.player_username
-        matched_row = row_by_name.get(identifier.casefold())
+        matched_row = row_by_name_key.get(identifier.casefold())
         if matched_row is not None:
             discord_ids_by_name.setdefault(matched_row.name, set()).add(row.discord_user_id)
             continue
@@ -361,38 +374,28 @@ def get_player_mapping_overview_rows(
             name = next(iter(name_candidates))
             discord_ids_by_name.setdefault(name, set()).add(row.discord_user_id)
 
-    output_with_discord: list[PlayerMappingOverviewRow] = []
-    for name in sorted(usernames_by_name, key=str.casefold):
-        usernames = tuple(sorted(usernames_by_name[name], key=str.casefold))
-        primary_role, secondary_role = latest_role_by_name.get(name, (None, None))
-        discord_ids = discord_ids_by_name.get(name, set())
-        output_with_discord.append(
-            PlayerMappingOverviewRow(
-                name=name,
-                usernames=usernames,
-                primary_role=primary_role,
-                secondary_role=secondary_role,
-                discord_user_ids=tuple(sorted(discord_ids)),
-            )
+    output_with_discord = [
+        PlayerMappingOverviewRow(
+            name=row.name,
+            usernames=row.usernames,
+            primary_role=row.primary_role,
+            secondary_role=row.secondary_role,
+            discord_user_ids=tuple(sorted(discord_ids_by_name.get(row.name, set()))),
         )
+        for row in output_with_discord
+    ]
 
     if not identifiers:
         return output_with_discord
 
     normalized_identifiers = [token.strip() for token in identifiers if token.strip()]
     if not normalized_identifiers:
-        return output
-
-    row_by_name_key = {row.name.casefold(): row for row in output}
-    names_by_username: dict[str, set[str]] = {}
-    for row in output:
-        for username in row.usernames:
-            names_by_username.setdefault(username, set()).add(row.name)
+        return output_with_discord
 
     selected_names: set[str] = set()
     for token in normalized_identifiers:
         # Prefer actual name resolution over username resolution.
-        row = {r.name.casefold(): r for r in output_with_discord}.get(token.casefold())
+        row = row_by_name_key.get(token.casefold())
         if row is not None:
             selected_names.add(row.name)
             continue

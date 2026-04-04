@@ -201,3 +201,18 @@ def test_player_mapping_overview_prefers_actual_name_over_username(tmp_path) -> 
 
     rows = db.get_player_mapping_overview_rows(db_path, ["Felix"])
     assert [row.name for row in rows] == ["Felix"]
+
+
+def test_discord_link_for_actual_name_does_not_bleed_to_same_username_aliases(tmp_path) -> None:
+    db_path = str(tmp_path / "discord_link_name_isolation.db")
+    db.init_db(db_path)
+
+    db.set_player_mapping(db_path, "Wyn", "Sean", "SUPP", "TOP")
+    db.set_player_mapping(db_path, "Wyn", "Wyn", "BOT", "JUNGLE")
+    db.set_discord_player_mapping(db_path, 999, "Wyn")
+
+    rows = db.get_player_mapping_overview_rows(db_path, ["Wyn", "Sean"])
+    by_name = {row.name: row for row in rows}
+    assert "Wyn" in by_name and "Sean" in by_name
+    assert "999" in set(by_name["Wyn"].discord_user_ids)
+    assert "999" not in set(by_name["Sean"].discord_user_ids)
