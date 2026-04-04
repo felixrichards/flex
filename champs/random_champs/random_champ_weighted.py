@@ -31,7 +31,7 @@ def _champ_to_champ_id(champ):
     return champ.replace(" ", "").replace(".", "").replace("'", "")
 
 
-def get_random_champs_by_role_weighted(N):
+def get_random_champs_by_role_weighted(N, fearless_bans=[]):
     ceiled_N = math.ceil(N / 5) * 5
     champs_by_role = {role: [] for role in constants.ROLES}
     champs_by_occurence = {}
@@ -55,7 +55,11 @@ def get_random_champs_by_role_weighted(N):
         i = 0
         while i < ceiled_N // 5:
             potential_champ = weighted_champs.pop()
-            if potential_champ not in all_picked_champs and potential_champ not in selected_champs_by_role[role]:
+            if (
+                potential_champ not in all_picked_champs
+                and potential_champ not in selected_champs_by_role[role]
+                and potential_champ not in fearless_bans
+            ):
                 all_picked_champs.append(potential_champ)
                 selected_champs_by_role[role].append(potential_champ)
                 i += 1
@@ -67,7 +71,8 @@ def get_random_champs_by_role_weighted(N):
         for _ in range(ceiled_N - N):
             roles_to_remove_one.append(shuffled_roles.pop())
         for role in roles_to_remove_one:
-            selected_champs_by_role[role].pop()
+            if selected_champs_by_role[role]:
+                selected_champs_by_role[role].pop()
 
     return selected_champs_by_role
 

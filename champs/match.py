@@ -10,6 +10,7 @@ import discord
 from champs.common.json_payload import extract_json_payload
 from champs.db import db
 from champs.discord_views import ParseFeedbackView
+from champs import fearless
 from champs.payloads.match import Match
 from champs.scoreboard import scoreboard_cv
 
@@ -68,8 +69,16 @@ async def _store_match_from_message(interaction: discord.Interaction, db_path: s
     match = match.model_copy(update={"timestamp": datetime.now(timezone.utc)})
     inserted = await asyncio.to_thread(db.insert_match, db_path, match)
     if inserted:
+        channel_id = interaction.channel.id if interaction.channel else None
+        fearless_message = ""
+        if channel_id is not None:
+            champions = [row.champion for row in match.win + match.lose]
+            _, fearless_message = fearless.record_match_champions(channel_id, champions)
         PENDING_MATCHES.pop(interaction.message.id, None)
-        await interaction.followup.send("Saved to match history.", ephemeral=True)
+        response = "Saved to match history."
+        if fearless_message:
+            response = f"{response}\n{fearless_message}"
+        await interaction.followup.send(response, ephemeral=True)
     else:
         await interaction.followup.send("Match already stored.", ephemeral=True)
 

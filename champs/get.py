@@ -5,6 +5,7 @@ from typing import List, Tuple
 
 import discord
 
+from champs import fearless
 from champs.random_champs import filters, random_champ_weighted, secret
 
 
@@ -127,7 +128,10 @@ async def handle_get(ctx, args) -> None:
             return
         img = random_champ_weighted.make_grid_from_champs(champs, force_line=True)
     else:
-        selected_champs_by_role = random_champ_weighted.get_random_champs_by_role_weighted(count)
+        fearless_bans = fearless.get_fearless_bans(ctx.channel.id)
+        selected_champs_by_role = random_champ_weighted.get_random_champs_by_role_weighted(
+            count, fearless_bans=fearless_bans
+        )
         img = random_champ_weighted.make_grid_from_champs_by_role(selected_champs_by_role)
         champs = sum(selected_champs_by_role.values(), start=[])
 

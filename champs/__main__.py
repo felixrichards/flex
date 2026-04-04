@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from champs.db import db
 from champs.draft import handle_draft
 from champs.elo import handle_elo
+from champs.fearless import handle_fearless
 from champs.get import handle_get
 from champs.match import handle_match, handle_on_message
 
@@ -45,6 +46,13 @@ async def elo(ctx, *args):
 @bot.command()
 async def draft(ctx, *args):
     await handle_draft(ctx, args, DB_PATH)
+
+
+# `champsfearless [subcommand]`
+# Controls in-memory, channel-scoped fearless bans used by `champsget` main flow.
+@bot.command()
+async def fearless(ctx, *args):
+    await handle_fearless(ctx, args)
 
 
 # Handles replies to bot match messages for JSON correction updates,
