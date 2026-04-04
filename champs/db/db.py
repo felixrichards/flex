@@ -295,6 +295,34 @@ def get_discord_player_mappings(db_path: str, discord_user_ids: list[int] | list
     return {row.discord_user_id: row.player_username for row in rows}
 
 
+def resolve_player_identifier_for_link(db_path: str, identifier: str) -> str | None:
+    token = identifier.strip()
+    if not token:
+        return None
+
+    engine = _engine(db_path)
+    with Session(engine) as session:
+        mapping_rows = session.scalars(select(PlayerMappingRecord).order_by(PlayerMappingRecord.id.asc())).all()
+        player_names = session.scalars(select(PlayerRecord.name)).all()
+
+    # Prefer actual-name matching (case-insensitive).
+    canonical_name_by_casefold: dict[str, str] = {}
+    for row in mapping_rows:
+        canonical_name_by_casefold[row.name.casefold()] = row.name
+    for name in player_names:
+        canonical_name_by_casefold[name.casefold()] = name
+    matched_name = canonical_name_by_casefold.get(token.casefold())
+    if matched_name is not None:
+        return matched_name
+
+    # Fallback: username mapping (case-sensitive), newest mapping first.
+    for row in reversed(mapping_rows):
+        if row.username == token:
+            return row.name
+
+    return None
+
+
 def get_player_mapping_overview_rows(
     db_path: str, identifiers: list[str] | None = None
 ) -> list[PlayerMappingOverviewRow]:

@@ -13,16 +13,19 @@ Discord command prefix is `champs` (for example `champsget`, `champsmatch`, `cha
 - `champsmatch delete`
   Attach a scoreboard image to delete the matching match from history.
 
-- `champsmatch addplayer <username> <name> [primary_role] [secondary_role]`
+- `champsplayer add <username> <name> [primary_role] [secondary_role]`
   Add username -> real-name mapping, optionally role-scoped.
   Role aliases are supported (for example `adc` -> `BOT`, `jgl` -> `JUNGLE`).
+
+- `champsplayer delete <username> <name>`
+  Delete username -> real-name mapping rows for that pair.
+
+- `champsplayer view <player_or_username ...>`
+  Show player role mappings table with name, usernames, primary/secondary roles, and linked Discord IDs for specified players.
 
 - `champsmatch linkdiscord <league_username> [@discord_user_or_id]`
   Link Discord user IDs to league usernames so voice-channel detection works when Discord names differ.
   If no Discord user is passed, links the command caller.
-
-- `champsmatch viewplayers <player_or_username ...>`
-  Show player role mappings table with name, usernames, primary/secondary roles, and linked Discord IDs for specified players.
 
 - `champsmatch help`
   Show match command help.

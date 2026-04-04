@@ -114,7 +114,7 @@ def test_handle_draft_errors_when_mapping_missing(tmp_path) -> None:
     assert len(ctx.messages) == 1
     message = ctx.messages[0]
     assert "Unknown username -> name mappings" in message
-    assert "champsmatch addplayer UnknownUser <name> <primary_role> <secondary_role>" in message
+    assert "champsplayer add UnknownUser <name> <primary_role> <secondary_role>" in message
     assert "<league name (no tag)>" in message
 
 
@@ -129,7 +129,7 @@ def test_handle_draft_errors_when_roles_missing(tmp_path) -> None:
     assert len(ctx.messages) == 1
     message = ctx.messages[0]
     assert "Players missing primary and/or secondary role" in message
-    assert "champsmatch addplayer Wyn Wyn <primary_role> <secondary_role>" in message
+    assert "champsplayer add Wyn Wyn <primary_role> <secondary_role>" in message
 
 
 def test_handle_draft_uses_discord_id_mapping_for_voice_members(tmp_path) -> None:
