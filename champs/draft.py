@@ -395,7 +395,7 @@ def _format_missing_setup_message(unknown_usernames: list[str], missing_roles: l
         lines.append("Unknown username -> name mappings:")
         for username in unknown_usernames:
             lines.append(
-                f"- `{username}`: run `champsmatch addplayer {username} <name> <primary_role> <secondary_role>`"
+                f"- `{username}`: run `champsplayer add {username} <name> <primary_role> <secondary_role>`"
             )
         lines.append(
             "- If these are Discord names, add Discord linkage with "
@@ -410,11 +410,11 @@ def _format_missing_setup_message(unknown_usernames: list[str], missing_roles: l
             secondary = rule.secondary_role or "<secondary_role>"
             lines.append(
                 f"- `{rule.username}` (`{rule.name}`): run "
-                f"`champsmatch addplayer {rule.username} {rule.name} {primary} {secondary}`"
+                f"`champsplayer add {rule.username} {rule.name} {primary} {secondary}`"
             )
 
     lines.append("")
-    lines.append("Template: `champsmatch addplayer <league name (no tag)> <name> <primary_role> <secondary_role>`")
+    lines.append("Template: `champsplayer add <league name (no tag)> <name> <primary_role> <secondary_role>`")
     return "\n".join(lines)
 
 

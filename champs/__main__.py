@@ -10,6 +10,7 @@ from champs.elo import handle_elo
 from champs.fearless import handle_fearless
 from champs.get import handle_get
 from champs.match import handle_match, handle_on_message
+from champs.player import handle_player
 
 load_dotenv()
 
@@ -27,10 +28,17 @@ async def get(ctx, *args):
 
 # `champsmatch [subcommand]`
 # Parse/confirm scoreboard matches and maintain mappings/history.
-# Subcommands: `help`, `addplayer <player> <name> [role]`, `delete` (with screenshot), or default parse flow.
+# Subcommands: `help`, `linkdiscord`, `delete` (with screenshot), or default parse flow.
 @bot.command()
 async def match(ctx, *args):
     await handle_match(ctx, args, DB_PATH)
+
+
+# `champsplayer [subcommand]`
+# Manage player mappings and role preferences (`add`, `view`, `delete`).
+@bot.command()
+async def player(ctx, *args):
+    await handle_player(ctx, args, DB_PATH)
 
 
 # `champselo [player_or_username ...]`

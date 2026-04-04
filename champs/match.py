@@ -23,19 +23,9 @@ MATCH_HELP = """`champsmatch` commands:
 - `champsmatch delete`
   Attach a scoreboard image to delete the matching match from history.
 
-- `champsmatch addplayer <username> <name> [primary_role] [secondary_role]`
-  Add a username -> name mapping, optionally scoped by roles.
-  Example: `champsmatch addplayer MaBalls Felix adc top`
-
-- `champsmatch deleteplayer <username> <name>`
-  Delete username -> name mapping rows for that pair.
-
 - `champsmatch linkdiscord <league_username> [@discord_user_or_id]`
   Link a Discord user to their league username for voice-based draft detection.
   If no user is provided, links the command caller.
-
-- `champsmatch viewplayers <player_or_username ...>`
-  Show role mappings table (name, usernames, roles, linked Discord IDs) for specified players.
 
 - `champsmatch help`
   Show this help."""
@@ -142,46 +132,6 @@ async def _handle_match_help(ctx) -> None:
     await ctx.send(MATCH_HELP)
 
 
-async def _handle_match_addplayer(ctx, args, db_path: str) -> None:
-    if len(args) < 2:
-        await ctx.send("Usage: `champsmatch addplayer <player> <name> [primary_role] [secondary_role]`")
-        return
-    username = args[0].strip()
-    primary_role = args[-2] if len(args) >= 4 else (args[-1] if len(args) >= 3 else None)
-    secondary_role = args[-1] if len(args) >= 4 else None
-    if secondary_role:
-        name = " ".join(args[1:-2]).strip()
-    elif primary_role:
-        name = " ".join(args[1:-1]).strip()
-    else:
-        name = " ".join(args[1:]).strip()
-    if not name:
-        await ctx.send("Usage: `champsmatch addplayer <player> <name> [primary_role] [secondary_role]`")
-        return
-    try:
-        await asyncio.to_thread(db.set_player_mapping, db_path, username, name, primary_role, secondary_role)
-    except Exception as exc:
-        if primary_role:
-            # If final token was not a valid role, treat it as part of the name and retry.
-            fallback_name = " ".join(args[1:]).strip()
-            if fallback_name:
-                try:
-                    await asyncio.to_thread(db.set_player_mapping, db_path, username, fallback_name, None)
-                except Exception as fallback_exc:
-                    await ctx.send(f"Could not save player mapping: {fallback_exc}")
-                    return
-                await ctx.send(f"Saved mapping: `{username}` -> `{fallback_name}`")
-                return
-        await ctx.send(f"Could not save player mapping: {exc}")
-        return
-    role_suffix = ""
-    if primary_role and secondary_role:
-        role_suffix = f" for roles `{primary_role}`/`{secondary_role}`"
-    elif primary_role:
-        role_suffix = f" for role `{primary_role}`"
-    await ctx.send(f"Saved mapping: `{username}` -> `{name}`{role_suffix}")
-
-
 def _parse_discord_user_id(token: str) -> int | None:
     stripped = token.strip()
     mention_match = re.fullmatch(r"<@!?(\d+)>", stripped)
@@ -197,8 +147,8 @@ async def _handle_match_linkdiscord(ctx, args, db_path: str) -> None:
         await ctx.send("Usage: `champsmatch linkdiscord <league_username> [@discord_user_or_id]`")
         return
 
-    league_username = args[0].strip()
-    if not league_username:
+    player_identifier = args[0].strip()
+    if not player_identifier:
         await ctx.send("Usage: `champsmatch linkdiscord <league_username> [@discord_user_or_id]`")
         return
 
@@ -213,79 +163,21 @@ async def _handle_match_linkdiscord(ctx, args, db_path: str) -> None:
     else:
         discord_user_id = int(ctx.author.id)
 
+    resolved_player_name = await asyncio.to_thread(db.resolve_player_identifier_for_link, db_path, player_identifier)
+    if resolved_player_name is None:
+        await ctx.send(
+            f"Could not resolve `{player_identifier}` to a known player. "
+            "Use `champsplayer add <username> <name> <primary_role> <secondary_role>` first."
+        )
+        return
+
     try:
-        await asyncio.to_thread(db.set_discord_player_mapping, db_path, discord_user_id, league_username)
+        await asyncio.to_thread(db.set_discord_player_mapping, db_path, discord_user_id, resolved_player_name)
     except Exception as exc:
         await ctx.send(f"Could not save Discord mapping: {exc}")
         return
 
-    await ctx.send(f"Linked Discord user `{discord_user_id}` -> league username `{league_username}`")
-
-
-async def _handle_match_deleteplayer(ctx, args, db_path: str) -> None:
-    if len(args) < 2:
-        await ctx.send("Usage: `champsmatch deleteplayer <username> <name>`")
-        return
-
-    username = args[0].strip()
-    name = " ".join(args[1:]).strip()
-    if not username or not name:
-        await ctx.send("Usage: `champsmatch deleteplayer <username> <name>`")
-        return
-
-    try:
-        deleted = await asyncio.to_thread(db.delete_player_mapping, db_path, username, name)
-    except Exception as exc:
-        await ctx.send(f"Could not delete player mapping: {exc}")
-        return
-
-    if deleted > 0:
-        await ctx.send(f"Deleted {deleted} mapping row(s) for `{username}` -> `{name}`.")
-    else:
-        await ctx.send(f"No mapping rows found for `{username}` -> `{name}`.")
-
-
-def _format_player_mapping_table(rows) -> str:
-    if not rows:
-        return "No player mappings found."
-
-    name_width = max(len("Name"), *(len(row.name) for row in rows))
-    usernames_width = max(len("Usernames"), *(len(", ".join(row.usernames)) for row in rows))
-    primary_width = max(len("Primary"), *(len(row.primary_role or "-") for row in rows))
-    secondary_width = max(len("Secondary"), *(len(row.secondary_role or "-") for row in rows))
-    discord_width = max(len("Discord IDs"), *(len(", ".join(row.discord_user_ids) or "-") for row in rows))
-
-    border = (
-        f"+-{'-' * name_width}-+-{'-' * usernames_width}-+-{'-' * primary_width}-"
-        f"+-{'-' * secondary_width}-+-{'-' * discord_width}-+"
-    )
-    lines = [
-        border,
-        (
-            f"| {'Name'.ljust(name_width)} | {'Usernames'.ljust(usernames_width)} | "
-            f"{'Primary'.ljust(primary_width)} | {'Secondary'.ljust(secondary_width)} | "
-            f"{'Discord IDs'.ljust(discord_width)} |"
-        ),
-        border,
-    ]
-    for row in rows:
-        usernames = ", ".join(row.usernames)
-        discord_ids = ", ".join(row.discord_user_ids) if row.discord_user_ids else "-"
-        lines.append(
-            f"| {row.name.ljust(name_width)} | {usernames.ljust(usernames_width)} | "
-            f"{(row.primary_role or '-').ljust(primary_width)} | {(row.secondary_role or '-').ljust(secondary_width)} | "
-            f"{discord_ids.ljust(discord_width)} |"
-        )
-    lines.append(border)
-    return "```text\n" + "\n".join(lines) + "\n```"
-
-
-async def _handle_match_viewplayers(ctx, args, db_path: str) -> None:
-    if not args:
-        await ctx.send("Usage: `champsmatch viewplayers <player_or_username ...>`")
-        return
-    rows = await asyncio.to_thread(db.get_player_mapping_overview_rows, db_path, list(args) if args else None)
-    await ctx.send(_format_player_mapping_table(rows))
+    await ctx.send(f"Linked Discord user `{discord_user_id}` -> player `{resolved_player_name}`")
 
 
 async def _handle_match_delete(ctx, db_path: str) -> None:
@@ -329,17 +221,8 @@ async def handle_match(ctx, args, db_path: str) -> None:
     if subcommand == "help":
         await _handle_match_help(ctx)
         return
-    if subcommand == "addplayer":
-        await _handle_match_addplayer(ctx, args[1:], db_path)
-        return
-    if subcommand == "deleteplayer":
-        await _handle_match_deleteplayer(ctx, args[1:], db_path)
-        return
     if subcommand == "linkdiscord":
         await _handle_match_linkdiscord(ctx, args[1:], db_path)
-        return
-    if subcommand == "viewplayers":
-        await _handle_match_viewplayers(ctx, args[1:], db_path)
         return
     if subcommand == "delete":
         await _handle_match_delete(ctx, db_path)
