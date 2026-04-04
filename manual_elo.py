@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
@@ -104,6 +105,15 @@ def _reset_history_and_ratings(db_path: str) -> tuple[int, int, int]:
             player.rating = db.INITIAL_RATING
         session.commit()
     return match_count, match_row_count, len(player_rows)
+
+
+def _backup_db_file(db_path: str) -> str:
+    if not os.path.exists(db_path):
+        raise FileNotFoundError(f"DB file not found for backup: {db_path}")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    backup_path = f"{db_path}.backup-{timestamp}"
+    shutil.copy2(db_path, backup_path)
+    return backup_path
 
 
 def _print_ratings_table(db_path: str) -> None:
@@ -294,6 +304,8 @@ def main() -> None:
             print(f"Set preferred role: {username} -> {role.upper()}")
 
     if args.reset_history:
+        backup_path = _backup_db_file(args.db_path)
+        print(f"Created DB backup: {backup_path}")
         deleted_matches, deleted_match_rows, reset_players = _reset_history_and_ratings(args.db_path)
         print(f"Deleted matches: {deleted_matches}")
         print(f"Deleted match rows: {deleted_match_rows}")

@@ -1,4 +1,5 @@
 from datetime import timezone
+import os
 
 import manual_elo
 from champs.db import db
@@ -191,3 +192,13 @@ def test_reset_history_and_ratings_clears_matches_and_resets_player_elo(tmp_path
         players = session.scalars(select(PlayerRecord)).all()
     assert players
     assert all(int(player.rating) == db.INITIAL_RATING for player in players)
+
+
+def test_backup_db_file_creates_timestamped_copy(tmp_path) -> None:
+    db_path = str(tmp_path / "manual_elo_backup.db")
+    db.init_db(db_path)
+    assert os.path.exists(db_path)
+
+    backup_path = manual_elo._backup_db_file(db_path)
+    assert os.path.exists(backup_path)
+    assert backup_path.startswith(db_path + ".backup-")
