@@ -70,6 +70,7 @@ class MappingRule:
 class _ResolverState:
     latest_name_by_username: dict[str, str]
     latest_mapping_by_username: dict[str, MappingRule]
+    latest_mapping_by_name_casefold: dict[str, MappingRule]
     player_username_by_discord_id: dict[str, str]
     canonical_name_by_casefold: dict[str, str]
     role_pref_by_name_casefold: dict[str, tuple[str | None, str | None]]
@@ -89,18 +90,21 @@ def _build_resolver_state(db_path: str) -> _ResolverState:
 
     latest_name_by_username: dict[str, str] = {}
     latest_mapping_by_username: dict[str, MappingRule] = {}
+    latest_mapping_by_name_casefold: dict[str, MappingRule] = {}
     canonical_name_by_casefold: dict[str, str] = {}
     role_pref_by_name_casefold: dict[str, tuple[str | None, str | None]] = {}
     rating_by_name_casefold = {row.name.casefold(): int(row.rating) for row in players}
 
     for row in mappings:
-        latest_name_by_username[row.username.casefold()] = row.name
-        latest_mapping_by_username[row.username.casefold()] = MappingRule(
+        mapping_rule = MappingRule(
             username=row.username,
             name=row.name,
             primary_role=row.preferred_role,
             secondary_role=row.secondary_role,
         )
+        latest_name_by_username[row.username.casefold()] = row.name
+        latest_mapping_by_username[row.username.casefold()] = mapping_rule
+        latest_mapping_by_name_casefold[row.name.casefold()] = mapping_rule
         canonical_name_by_casefold[row.name.casefold()] = row.name
         if row.preferred_role:
             role_pref_by_name_casefold[row.name.casefold()] = (row.preferred_role, row.secondary_role)
@@ -111,11 +115,26 @@ def _build_resolver_state(db_path: str) -> _ResolverState:
     return _ResolverState(
         latest_name_by_username=latest_name_by_username,
         latest_mapping_by_username=latest_mapping_by_username,
+        latest_mapping_by_name_casefold=latest_mapping_by_name_casefold,
         player_username_by_discord_id=discord_player_mappings,
         canonical_name_by_casefold=canonical_name_by_casefold,
         role_pref_by_name_casefold=role_pref_by_name_casefold,
         rating_by_name_casefold=rating_by_name_casefold,
     )
+
+
+def _resolve_mapping_rule(identifier: str, state: _ResolverState) -> MappingRule | None:
+    token = _clean_token(identifier)
+    if not token:
+        return None
+    token_key = token.casefold()
+    by_username = state.latest_mapping_by_username.get(token_key)
+    if by_username is not None:
+        return by_username
+    canonical_name = state.canonical_name_by_casefold.get(token_key)
+    if canonical_name is None:
+        return None
+    return state.latest_mapping_by_name_casefold.get(canonical_name.casefold())
 
 
 def _resolve_player_identifier(identifier: str, state: _ResolverState) -> DraftPlayer | None:
@@ -406,7 +425,6 @@ async def handle_draft(ctx, args, db_path: str) -> None:
         return
 
     resolver_state = _build_resolver_state(db_path)
-    removed_keys = {_clean_token(token).casefold() for token in removed if _clean_token(token)}
 
     if explicit:
         base_tokens = list(explicit)
@@ -416,27 +434,39 @@ async def handle_draft(ctx, args, db_path: str) -> None:
     merged_tokens: list[str] = []
     for token in [*base_tokens, *added]:
         cleaned = _clean_token(token)
-        if not cleaned or cleaned.casefold() in removed_keys:
+        if not cleaned:
             continue
         if cleaned not in merged_tokens:
             merged_tokens.append(cleaned)
 
+    added_players = _resolve_players(added, resolver_state)
+    removed_players = _resolve_players(removed, resolver_state)
+    added_name_keys = {row.name.casefold() for row in added_players}
+    removed_name_keys = {row.name.casefold() for row in removed_players}
+    overlap = sorted(added_name_keys & removed_name_keys)
+    if overlap:
+        overlap_names = ", ".join(resolver_state.canonical_name_by_casefold.get(name, name) for name in overlap)
+        await ctx.send(f"Conflicting draft modifiers: player(s) included and excluded: {overlap_names}")
+        return
+
     unknown_usernames: list[str] = []
-    missing_roles: list[MappingRule] = []
+    missing_roles_by_name: dict[str, MappingRule] = {}
     for token in merged_tokens:
-        rule = resolver_state.latest_mapping_by_username.get(token.casefold())
+        rule = _resolve_mapping_rule(token, resolver_state)
         if rule is None:
             unknown_usernames.append(token)
             continue
         if not rule.primary_role or not rule.secondary_role:
-            missing_roles.append(rule)
+            missing_roles_by_name[rule.name.casefold()] = rule
+
+    missing_roles = list(missing_roles_by_name.values())
 
     if unknown_usernames or missing_roles:
         await ctx.send(_format_missing_setup_message(unknown_usernames, missing_roles))
         return
 
     players = _resolve_players(merged_tokens, resolver_state)
-    players = [player for player in players if player.name.casefold() not in removed_keys]
+    players = [player for player in players if player.name.casefold() not in removed_name_keys]
 
     if len(players) != len(ROLES) * 2:
         source_hint = "voice channels (+/- overrides)" if not explicit else "explicit list (+/- overrides)"

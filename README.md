@@ -21,8 +21,8 @@ Discord command prefix is `champs` (for example `champsget`, `champsmatch`, `cha
   Link Discord user IDs to league usernames so voice-channel detection works when Discord names differ.
   If no Discord user is passed, links the command caller.
 
-- `champsmatch viewplayers`
-  Show player role mappings table with name, usernames, primary/secondary roles, and linked Discord IDs.
+- `champsmatch viewplayers <player_or_username ...>`
+  Show player role mappings table with name, usernames, primary/secondary roles, and linked Discord IDs for specified players.
 
 - `champsmatch help`
   Show match command help.

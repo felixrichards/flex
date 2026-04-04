@@ -351,9 +351,15 @@ def get_player_mapping_overview_rows(
 def _resolve_query_names(session: Session, identifiers: list[str]) -> set[str]:
     resolved: list[str] = []
     seen_identifiers: set[str] = set()
+
+    player_names = session.scalars(select(PlayerRecord.name)).all()
+    canonical_name_by_casefold = {name.casefold(): name for name in player_names}
+
     for raw in identifiers:
         token = raw.strip()
-        if not token or token in seen_identifiers:
+        if not token:
+            continue
+        if token in seen_identifiers:
             continue
         seen_identifiers.add(token)
 
@@ -366,13 +372,21 @@ def _resolve_query_names(session: Session, identifiers: list[str]) -> set[str]:
         for row in mapping_rows:
             if row.name not in mapped_names:
                 mapped_names.append(row.name)
+            canonical_name_by_casefold.setdefault(row.name.casefold(), row.name)
         if mapped_names:
             if token in mapped_names:
                 resolved.append(token)
             else:
                 resolved.append(mapped_names[0])
             continue
+
+        canonical_name = canonical_name_by_casefold.get(token.casefold())
+        if canonical_name is not None:
+            resolved.append(canonical_name)
+            continue
+
         resolved.append(token)
+
     return set(resolved)
 
 

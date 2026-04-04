@@ -48,6 +48,9 @@ def test_get_elo_rows_resolves_username_to_mapped_name_and_dedupes(tmp_path) -> 
     by_name = db.get_elo_rows(db_path, ["Felix"])
     assert [row.player for row in by_name] == ["Felix"]
 
+    by_name_lower = db.get_elo_rows(db_path, ["felix"])
+    assert [row.player for row in by_name_lower] == ["Felix"]
+
     deduped = db.get_elo_rows(db_path, ["Felix", "MaBalls", "Felix"])
     assert [row.player for row in deduped] == ["Felix"]
 

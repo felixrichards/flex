@@ -234,3 +234,51 @@ def test_handle_draft_ignores_unlinked_voice_members(tmp_path) -> None:
     assert "Blue Team" in ctx.messages[0]
     assert "Red Team" in ctx.messages[0]
     assert "Unknown username -> name mappings" not in ctx.messages[0]
+
+
+def test_handle_draft_supports_plus_by_name_and_username_with_dedupe(tmp_path) -> None:
+    db_path = str(tmp_path / "draft_plus_name_username_dedupe.db")
+    db.init_db(db_path)
+
+    db.set_player_mapping(db_path, "MaBalls", "Felix", "MID", "BOT")
+    for idx, (primary, secondary) in enumerate(
+        [
+            ("TOP", "JUNGLE"),
+            ("JUNGLE", "TOP"),
+            ("MID", "SUPP"),
+            ("BOT", "MID"),
+            ("SUPP", "BOT"),
+            ("TOP", "MID"),
+            ("JUNGLE", "BOT"),
+            ("MID", "TOP"),
+            ("BOT", "JUNGLE"),
+        ],
+        start=2,
+    ):
+        db.set_player_mapping(db_path, f"P{idx}", f"Player{idx}", primary, secondary)
+
+    ctx = _FakeCtx()
+    asyncio.run(
+        handle_draft(
+            ctx,
+            ("P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "P10", "+Felix", "+MaBalls"),
+            db_path,
+        )
+    )
+
+    assert len(ctx.messages) == 1
+    assert "Blue Team" in ctx.messages[0]
+    assert "Red Team" in ctx.messages[0]
+
+
+def test_handle_draft_errors_when_same_player_in_plus_and_minus(tmp_path) -> None:
+    db_path = str(tmp_path / "draft_plus_minus_conflict.db")
+    db.init_db(db_path)
+    db.set_player_mapping(db_path, "MaBalls", "Felix", "MID", "BOT")
+    ctx = _FakeCtx()
+
+    asyncio.run(handle_draft(ctx, ("+Felix", "-MaBalls"), db_path))
+
+    assert len(ctx.messages) == 1
+    assert "Conflicting draft modifiers" in ctx.messages[0]
+    assert "Felix" in ctx.messages[0]
