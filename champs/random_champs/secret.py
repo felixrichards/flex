@@ -2,13 +2,13 @@ import os
 
 from PIL import Image
 
-from . import myresources
+from .. import myresources
 from .random_champ_weighted import IMAGE_SIZE
 
 
 CHAMP_STR_TO_CHAMP = {
     "BARD": "Bard",
-    "MILLIO": "Millio",
+    "MILIO": "Milio",
     "ZAC": "Zac",
     "MISS FORTUNE": "Miss Fortune",
     "MF": "Miss Fortune",
@@ -27,7 +27,7 @@ OTP_CHAMPS = list(CHAMP_STR_TO_CHAMP.keys())
 
 CHAMP_TO_OTP_IMAGE_PATH = {
     "Bard": "brandon1.png",
-    "Millio": "sean1.png",
+    "Milio": "sean1.png",
     "Zac": "felix1.png",
     "Miss Fortune": "laurel1.png",
     "Kayle": "andreas1.png",

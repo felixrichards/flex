@@ -1,6 +1,6 @@
 import random
 
-from .myresources import CHAMPS_WITH_ROLE_DATA
+from ..myresources import CHAMPS_WITH_ROLE_DATA
 
 
 TOP = "TOP"

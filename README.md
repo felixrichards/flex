@@ -1,8 +1,34 @@
 # Champsget
 
-## Manual ELO Script
+Discord command prefix is `champs` (for example `champsget`, `champsmatch`, `champselo`).
+
+## Bot Commands
+
+- `champsget [N] [filters...]`
+  Return random champions (weighted by role by default), optionally filtered.
+
+- `champsmatch`
+  Attach a scoreboard image to parse and review.
+
+- `champsmatch delete`
+  Attach a scoreboard image to delete the matching match from history.
+
+- `champsmatch addplayer <username> <name> [primary_role] [secondary_role]`
+  Add username -> real-name mapping, optionally role-scoped.
+  Role aliases are supported (for example `adc` -> `BOT`, `jgl` -> `JUNGLE`).
+
+- `champsmatch help`
+  Show match command help.
+
+- `champselo [player_or_username ...]`
+  Show ELO table (rank, player, elo, wins, losses), optionally filtered by player names/usernames.
+  Username arguments are resolved to mapped real names.
+
+## Manual ELO Script (`manual_elo.py`)
 
 Use `manual_elo.py` for offline ELO maintenance (outside the Discord bot runtime).
+
+`--recalculate` now also reapplies current DB-backed username -> name mappings to historical match rows before rebuilding ratings.
 
 ### 1. Recalculate all ratings from stored history
 
@@ -25,6 +51,51 @@ Accepted JSON shapes for `--input-file`:
 
 ```bash
 poetry run python manual_elo.py --db-path /opt/random-champs/data/champs.db --input-file backlog.json --recalculate
+```
+
+### 4. Set mappings directly from CLI
+
+```bash
+poetry run python manual_elo.py --db-path /opt/random-champs/data/champs.db --set-mapping MaBalls Felix
+poetry run python manual_elo.py --db-path /opt/random-champs/data/champs.db --set-mapping Wyn Wyn BOT
+poetry run python manual_elo.py --db-path /opt/random-champs/data/champs.db --set-mapping Wyn Sean MID BOT
+```
+
+Set preferred primary role for latest mapped name:
+
+```bash
+poetry run python manual_elo.py --db-path /opt/random-champs/data/champs.db --set-preferred-role Wyn MID
+```
+
+### 5. Load player mappings from JSON
+
+```bash
+poetry run python manual_elo.py --db-path /opt/random-champs/data/champs.db --players-file players.json
+```
+
+Accepted JSON shapes for `--players-file`:
+- single row object
+- list of row objects
+- `{ "players": [ ... ] }`
+
+Player mapping row schema:
+- `username` (required)
+- `name` (required)
+- `primary_role` (optional)
+- `secondary_role` (optional)
+
+## Manual Scoreboard Script (`manual_scoreboard.py`)
+
+Use `manual_scoreboard.py` to parse a scoreboard image and print match JSON.
+
+```bash
+poetry run python manual_scoreboard.py /path/to/scoreboard.png
+```
+
+Compact JSON output:
+
+```bash
+poetry run python manual_scoreboard.py /path/to/scoreboard.png --compact
 ```
 
 ## Testing

@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 class MatchRow(BaseModel):
     player: str = Field(..., min_length=1)
+    name: str | None = None
     champion: str = Field(..., min_length=1)
     kda: str = Field(..., min_length=1)
 

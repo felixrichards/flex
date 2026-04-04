@@ -1,7 +1,11 @@
-from champs import utils
+from champs import db
+from champs.db.models import PlayerMappingRecord
+from champs.payloads import Match
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 
-def _base_match() -> dict:
+def _base_payload() -> dict:
     return {
         "win": [
             {"player": "Wyn", "champion": "Jhin", "kda": "1/1/1"},
@@ -20,18 +24,69 @@ def _base_match() -> dict:
     }
 
 
-def test_wyn_sean_edge_case_prefers_bot_role() -> None:
-    mapped = utils.apply_player_name_map(_base_match())
-    win_names = [row["player"] for row in mapped["win"]]
+def test_wyn_sean_edge_case_prefers_bot_role(tmp_path) -> None:
+    db_path = str(tmp_path / "wyn.db")
+    db.init_db(db_path)
+    match = Match.model_validate(_base_payload())
+    resolved = db.resolve_match_names(db_path, match)
+    win_names = [row.name for row in resolved.win]
     assert win_names[0] == "Wyn"
     assert win_names[1] == "Sean"
 
 
-def test_wyn_sean_edge_case_fallback_first_wyn_second_sean() -> None:
-    match = _base_match()
-    match["win"][0]["champion"] = "Ahri"
-    match["win"][1]["champion"] = "Zed"
-    mapped = utils.apply_player_name_map(match)
-    win_names = [row["player"] for row in mapped["win"]]
+def test_wyn_sean_edge_case_fallback_first_wyn_second_sean(tmp_path) -> None:
+    db_path = str(tmp_path / "wyn_fallback.db")
+    db.init_db(db_path)
+    payload = _base_payload()
+    payload["win"][0]["champion"] = "Ahri"
+    payload["win"][1]["champion"] = "Zed"
+    match = Match.model_validate(payload)
+    resolved = db.resolve_match_names(db_path, match)
+    win_names = [row.name for row in resolved.win]
     assert win_names[0] == "Wyn"
     assert win_names[1] == "Sean"
+
+
+def test_role_scoped_mapping_rule_for_duplicate_username(tmp_path) -> None:
+    db_path = str(tmp_path / "wyn_role_rule.db")
+    db.init_db(db_path)
+    db.set_player_mapping(db_path, "Wyn", "Wyn", "BOT")
+    db.set_player_mapping(db_path, "Wyn", "Sean")
+
+    payload = _base_payload()
+    payload["win"][0]["champion"] = "Jhin"   # BOT
+    payload["win"][1]["champion"] = "Ahri"   # MID
+    match = Match.model_validate(payload)
+    resolved = db.resolve_match_names(db_path, match)
+    win_names = [row.name for row in resolved.win]
+    assert win_names[0] == "Wyn"
+    assert win_names[1] == "Sean"
+
+
+def test_secondary_role_is_stored_but_primary_drives_mapping(tmp_path) -> None:
+    db_path = str(tmp_path / "wyn_secondary_role.db")
+    db.init_db(db_path)
+    db.set_player_mapping(db_path, "Wyn", "Wyn", "MID", "BOT")
+    db.set_player_mapping(db_path, "Wyn", "Sean")
+
+    payload = _base_payload()
+    payload["win"][0]["champion"] = "Jhin"  # BOT only
+    payload["win"][1]["champion"] = "Ahri"  # MID
+    match = Match.model_validate(payload)
+    resolved = db.resolve_match_names(db_path, match)
+    win_names = [row.name for row in resolved.win]
+    assert win_names[0] == "Sean"
+    assert win_names[1] == "Wyn"
+
+    engine = db._engine(db_path)
+    with Session(engine) as session:
+        mapping_row = session.scalar(
+            select(PlayerMappingRecord).where(
+                PlayerMappingRecord.username == "Wyn",
+                PlayerMappingRecord.name == "Wyn",
+                PlayerMappingRecord.preferred_role.is_not(None),
+            )
+        )
+    assert mapping_row is not None
+    assert mapping_row.preferred_role == "MID"
+    assert mapping_row.secondary_role == "BOT"

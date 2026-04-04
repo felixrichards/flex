@@ -2,10 +2,11 @@ import discord
 
 
 class ParseFeedbackView(discord.ui.View):
-    def __init__(self, requester_id: int, on_confirm=None):
+    def __init__(self, requester_id: int, on_confirm=None, on_wrong=None):
         super().__init__(timeout=120)
         self.requester_id = requester_id
         self._on_confirm = on_confirm
+        self._on_wrong = on_wrong
         self._resolved = False
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -28,6 +29,13 @@ class ParseFeedbackView(discord.ui.View):
 
         status = "✅ Parse confirmed by requester." if is_correct else "❌ Parse marked incorrect by requester."
         content = (interaction.message.content or "").rstrip()
+        if not is_correct and self._on_wrong:
+            try:
+                extra = await self._on_wrong(interaction)
+                if extra:
+                    content = f"{content}\n\n{extra}" if content else extra
+            except Exception:
+                pass
         content = f"{content}\n\n{status}" if content else status
         await interaction.response.edit_message(content=content, view=self)
         if is_correct and self._on_confirm:
