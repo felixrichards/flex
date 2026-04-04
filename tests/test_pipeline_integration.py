@@ -1,8 +1,9 @@
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from champs import db, scoreboard_cv, utils
-from champs.models import MatchPlayerRecord, MatchRecord, PlayerRecord
+from champs.db import db
+from champs.db.models import MatchPlayerRecord, MatchRecord, PlayerRecord
+from champs.scoreboard import scoreboard_cv
 from champs.payloads import Match
 from conftest import resource_path
 
@@ -13,8 +14,7 @@ def test_parse_to_db_pipeline_with_duplicate_guard(tmp_path) -> None:
 
     image_path = resource_path("scoreboards", "1.png")
     parsed = scoreboard_cv.detect_post_match(str(image_path))
-    mapped = utils.apply_player_name_map(parsed)
-    match = Match.model_validate(mapped)
+    match = Match.model_validate(parsed)
 
     assert db.insert_match(db_path, match) is True
     assert db.insert_match(db_path, match) is False

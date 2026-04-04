@@ -1,0 +1,16 @@
+# High-Level Task Overview
+
+- Built OCR-based scoreboard parsing flow and integrated it with the Discord bot.
+- Added parse confirmation UX (buttons) and correction-by-reply JSON workflow.
+- Added validated match payload models with checksum + timestamp behavior.
+- Added SQLite persistence with SQLAlchemy models for matches, players, and mapping rules.
+- Added iterative ELO updates on insert, plus full-history recalculation path.
+- Added duplicate-match prevention via checksum.
+- Added manual tools:
+  - `manual_elo.py` for ingestion/recalc/mapping updates
+  - `manual_scoreboard.py` for direct image -> parsed JSON
+- Added DB-backed username->name mapping with role-aware rules.
+- Added commands for mapping/admin actions and match deletion.
+- Added `champselo` command with filtered table output by username/name.
+- Added substantial test coverage for schema, OCR resources, mapping edge cases, payload extraction, ELO, and DB behavior.
+- Refactored package structure into subpackages (`random_champs`, `scoreboard`, `db`, `common`) and route modules (`get.py`, `match.py`).

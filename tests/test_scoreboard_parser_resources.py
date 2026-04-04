@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from champs import scoreboard_cv
+from champs.scoreboard import scoreboard_cv
 from conftest import resource_path
 
 

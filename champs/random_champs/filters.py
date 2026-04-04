@@ -1,5 +1,5 @@
 from . import constants
-from . import myresources
+from .. import myresources
 
 from typing import List
 
@@ -18,6 +18,13 @@ class Filter():
     @classmethod
     def is_valid(self, filter_str: str):
         return self.process_filter_str(filter_str) in self.filter_strs_to_filters.keys()
+
+    @classmethod
+    def sanitise_filter(cls, filter_str: str):
+        if not cls.is_valid(filter_str):
+            raise ValueError(f"Given filter string {filter_str} is not valid")
+        processed = cls.process_filter_str(filter_str)
+        return cls.filter_strs_to_filters[processed]
 
     @staticmethod
     def process_filter_str(x):

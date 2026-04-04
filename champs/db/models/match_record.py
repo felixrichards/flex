@@ -17,6 +17,7 @@ class MatchPlayerRecord(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     match_checksum: Mapped[str] = mapped_column(String, ForeignKey("matches.checksum"), nullable=False)
+    player_username: Mapped[str] = mapped_column(String, nullable=False)
     player_name: Mapped[str] = mapped_column(String, ForeignKey("players.name"), nullable=False)
     win: Mapped[bool] = mapped_column(nullable=False)
     champion: Mapped[str] = mapped_column(String, nullable=False)

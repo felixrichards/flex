@@ -1,4 +1,4 @@
-from champs.json_payload import extract_json_payload
+from champs.common.json_payload import extract_json_payload
 
 
 def test_extract_json_payload_from_fenced_block() -> None:

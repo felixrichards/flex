@@ -14,7 +14,7 @@ from typing import Any
 import cv2
 from rapidocr_onnxruntime import RapidOCR
 
-from .myresources import CHAMPS_PLAYERS_MANIFEST
+from ..myresources import CHAMPS_PLAYERS_MANIFEST
 
 
 KDA_RE = re.compile(r"[Xx]?\s*(\d+)\s*/\s*(\d+)\s*/\s*(\d+)")

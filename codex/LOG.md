@@ -1,0 +1,45 @@
+# Technical Change Log (Condensed)
+
+- Implemented RapidOCR-first scoreboard parsing in `scoreboard/scoreboard_cv.py`.
+- Added robust KDA extraction heuristics and resource-driven OCR regression tests.
+- Added payload validation model (`payloads/match.py`) with:
+  - strict 5v5 validation
+  - checksum generation independent of row order
+  - timestamp support
+- Added feedback buttons (`discord_views.py`) and correction reply pipeline.
+- Added SQLite persistence via SQLAlchemy:
+  - `matches`
+  - `match_players`
+  - `players`
+  - `player_mappings`
+- Added DB schema upgrade logic for backward compatibility on key columns/tables.
+- Added username and resolved-name storage on match rows.
+- Shifted mapping logic from static JSON runtime mapping to DB mapping rules.
+- Added role-aware mapping rules (`preferred_role`) and deterministic latest-rule precedence.
+- Preserved Wyn/Sean fallback behavior when explicit role rules are absent.
+- Added recalc mode that refreshes stored row attribution from current mappings.
+- Added `delete_match` DB operation with post-delete rating recompute.
+- Added `champselo` query flow with:
+  - rank/player/elo/wins/losses table
+  - username->name query resolution
+  - duplicate input elimination
+- Added bot command coverage:
+  - `champsmatch help`
+  - `champsmatch addplayer <player> <name> [role]`
+  - `champsmatch delete` (screenshot)
+  - `champselo [identifiers...]`
+- Refactored package layout:
+  - `champs/get.py`, `champs/match.py`, `champs/elo.py`
+  - `champs/random_champs/*`
+  - `champs/scoreboard/*`
+  - `champs/db/*` (+ `models`)
+  - `champs/common/*`
+  - slim `__main__.py` route wiring only
+- Expanded tests to cover:
+  - parser resource fixtures
+  - checksum behavior
+  - JSON payload parsing
+  - mapping edge cases
+  - iterative ELO + dedupe
+  - delete behavior
+  - username/name ELO query behavior

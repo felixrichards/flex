@@ -1,0 +1,10 @@
+startup:
+  preflight_files:
+    - AGENTS.md
+    - codex/TASKS.md
+    - codex/LOG.md
+  required: true
+
+instructions:
+  - "At the start of each new task, read AGENTS.md first."
+  - "Then read codex/TASKS.md and codex/LOG.md for project context and change history."

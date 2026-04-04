@@ -1,252 +1,52 @@
-import enum
-import json
 import os
-import random
-import asyncio
-import tempfile
-from datetime import datetime, timezone
 
 import discord
-
 from discord.ext import commands
 from dotenv import load_dotenv
-from io import BytesIO
-from typing import List, Tuple
 
-from champs import filters
-from champs.discord_views import ParseFeedbackView
-from champs import random_champ_weighted
-from champs import secret
-from champs import scoreboard_cv
-from champs import utils
-from champs import db
-from champs.payloads.match import Match
-from champs.json_payload import extract_json_payload
+from champs.db import db
+from champs.elo import handle_elo
+from champs.get import handle_get
+from champs.match import handle_match, handle_on_message
 
 load_dotenv()
-
-
-_USAGE = """After the command, write the desired number of champs to get a random selection of champs even across roles.
-If no number is given, 40 are returned.
-You can also add filters, e.g. role, class. For example: champsget 3 assassin jungle.
-"""
-
 
 bot = commands.Bot(command_prefix="champs", intents=discord.Intents.all())
 DB_PATH = os.getenv("CHAMPS_DB_PATH", "/app/data/champs.db")
 
-random_wyns = [
-    "wyn is a fucking moron",
-    "wyn is literally steve from minecraft",
-    "petrol head wyn strikes again",
-    "wyn has single digit IQ",
-    "wyn has double digit IQ",
-    "wyn's anivia is actually really good",
-    "wyn on ad vs. wyn off-role",
-    "wyn's favourite beer is budweiser",
-    "wyn spent >1k on a greenhouse for tomatoes",
-    "wyn drives a 2008 honda civic which he paid 10k for in 2024",
-    "wyn wishes he could main qiyana",
-    "just imagine being wyn",
-    "wyn likes to go fly fishing with his dad",
-    "leblanc combo 2022",
-    "wyn gets silent when tilted",
-    "wyn cannot play jhin",
-]
 
-
-def _get_random_wyn():
-    wyns = random_wyns.copy()
-    random.shuffle(wyns)
-    return wyns[0]
-
-
-def _is_int(N):
-    try:
-        int(N)
-        return True
-    except:
-        return False
-
-class Special(enum.Enum):
-    WYN = 0
-    HALF = 1
-    PERSON = 2
-
-    @staticmethod
-    def get_special(s: str):
-        if s == "1337":
-            return Special.WYN
-        if s == "0.5":
-            return Special.HALF
-        if s.upper() in secret.OTP_CHAMPS:
-            return Special.PERSON
-        return None
-    
-
-class BotArgsError(Exception):
-    pass
-
-
-def _parse_get_args(args) -> Tuple[int, List, Special]:
-    if len(args) == 0:
-        return 40, [], None, []
-
-    N = None
-    filter_strs = []
-    special = Special.get_special(args[0]) or None
-    unrecognised_arguments = []
-
-    if special is Special.HALF:
-        N = 1
-
-    if special is Special.PERSON:
-        filter_strs.append(args[0])
-
-    for arg in args:
-        if _is_int(arg) and N is None:
-            N = int(arg)
-        elif filters.is_valid_filter(arg):
-            filter_strs.append(arg)
-        else:
-            unrecognised_arguments.append(arg)
-    
-    if N is None and not filter_strs and unrecognised_arguments:
-        raise BotArgsError("No recognised arguments were passed.")
-
-    if N is None:
-        N = 40
-    
-    if N < 1 or N > 120:
-        raise BotArgsError("Number must be a whole number between 1 & 120.")
-
-    return N, filter_strs, special, unrecognised_arguments
-
-
+# `champsget [N] [filters...]`
+# Returns random champions (weighted by role by default), with optional count and filters.
+# Special cases supported by handler: OTP shortcut, half-name mode, and Wyn easter egg.
 @bot.command()
 async def get(ctx, *args):
-    try:
-        N, filter_strs, special, unrecognised_arguments = _parse_get_args(args)
-    except BotArgsError as exc:
-        await ctx.send(f"{str(exc)}\n\n{_USAGE}")
-        return
-    if special is Special.WYN:
-        await ctx.send(_get_random_wyn())
-        return
-    if unrecognised_arguments and not special:
-        await ctx.send(f"Unrecognised arguments: {', '.join(unrecognised_arguments)}.")
-
-    if special is Special.PERSON:
-        champ, img = secret.get_champ_and_img(filter_strs[0])
-        champs = [champ]
-    elif filter_strs:
-        champs = random_champ_weighted.get_random_champs_with_filters(N=N, filter_strs=filter_strs)
-        if not champs:
-            await ctx.send("No champions found.")
-            return
-        img = random_champ_weighted.make_grid_from_champs(champs, force_line=True)
-    else:
-        selected_champs_by_role = random_champ_weighted.get_random_champs_by_role_weighted(N=N)
-        img = random_champ_weighted.make_grid_from_champs_by_role(selected_champs_by_role)
-        champs = sum(selected_champs_by_role.values(), start=[])
-
-    if special is Special.HALF:
-        champs = [champ[:len(champ)//2] for champ in champs]
-        img = img.crop((0, 0, 30, 60))
-    img_bytes = BytesIO()
-    img.save(img_bytes, format='PNG')
-    img_bytes.seek(0)
-    file = discord.file.File(img_bytes, filename='champs.png')
-    await ctx.send(", ".join(champs), file=file)
+    await handle_get(ctx, args)
 
 
-def _format_scoreboard_message(match: Match):
-    payload = json.dumps(match.model_dump(mode="json", exclude={"timestamp"}), indent=2, ensure_ascii=True)
-    return f"```json\n{payload}\n```"
-
-
-def _parse_match_payload(payload) -> Match | None:
-    try:
-        return Match.model_validate(payload)
-    except Exception:
-        return None
-
-
-async def _store_match_from_message(interaction: discord.Interaction) -> None:
-    payload = extract_json_payload(interaction.message.content or "")
-    if payload is None:
-        return
-    match = _parse_match_payload(payload)
-    if match is None:
-        return
-    match = match.model_copy(update={"timestamp": datetime.now(timezone.utc)})
-    inserted = await asyncio.to_thread(db.insert_match, DB_PATH, match)
-    if inserted:
-        await interaction.followup.send("Saved to match history.", ephemeral=True)
-    else:
-        await interaction.followup.send("Match already stored.", ephemeral=True)
-
-
+# `champsmatch [subcommand]`
+# Parse/confirm scoreboard matches and maintain mappings/history.
+# Subcommands: `help`, `addplayer <player> <name> [role]`, `delete` (with screenshot), or default parse flow.
 @bot.command()
-async def match(ctx):
-    if not ctx.message.attachments:
-        await ctx.send("Attach a scoreboard image and run `champsmatch`.")
-        return
-
-    attachment = ctx.message.attachments[0]
-    try:
-        payload = await attachment.read()
-    except Exception as exc:
-        await ctx.send(f"Could not read attachment: {exc}")
-        return
-
-    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-        tmp.write(payload)
-        tmp_path = tmp.name
-
-    try:
-        result = await asyncio.to_thread(
-            scoreboard_cv.detect_post_match,
-            tmp_path,
-        )
-    except Exception as exc:
-        await ctx.send(f"Scoreboard parse failed: {exc}")
-        return
-    finally:
-        try:
-            os.remove(tmp_path)
-        except OSError:
-            pass
-
-    result = utils.apply_player_name_map(result)
-    match = Match.model_validate(result)
-    view = ParseFeedbackView(requester_id=ctx.author.id, on_confirm=_store_match_from_message)
-    message = await ctx.send(_format_scoreboard_message(match), view=view)
-    view.message = message
+async def match(ctx, *args):
+    await handle_match(ctx, args, DB_PATH)
 
 
+# `champselo [player_or_username ...]`
+# Shows ELO table with rank, player, elo, wins, losses.
+# With args, filters to matching players (username args map to actual names; duplicates are ignored).
+@bot.command()
+async def elo(ctx, *args):
+    await handle_elo(ctx, args, DB_PATH)
+
+
+# Handles replies to bot match messages for JSON correction updates,
+# then falls back to normal command processing for all other messages.
 @bot.event
 async def on_message(message: discord.Message):
-    if message.author.bot:
-        return
+    handled = await handle_on_message(message, bot, DB_PATH)
+    if not handled:
+        await bot.process_commands(message)
 
-    if message.reference and message.reference.resolved:
-        referenced = message.reference.resolved
-        if isinstance(referenced, discord.Message) and referenced.author == bot.user:
-            payload = extract_json_payload(message.content)
-            if payload is None:
-                await bot.process_commands(message)
-                return
-            match = _parse_match_payload(payload)
-            if match is None:
-                await message.channel.send("Scoreboard JSON not recognized. Expect win/lose arrays of 5 rows each.")
-                return
-            match = match.model_copy(update={"timestamp": datetime.now(timezone.utc)})
-            await referenced.edit(content=_format_scoreboard_message(match))
-            await message.channel.send("Updated.")
-            return
-
-    await bot.process_commands(message)
 
 db.init_db(DB_PATH)
 bot.run(os.getenv("DISCORD_TOKEN"))

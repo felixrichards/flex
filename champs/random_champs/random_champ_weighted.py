@@ -4,8 +4,8 @@ import random
 from PIL import Image
 
 from . import filters
-from . import myresources
 from . import constants
+from .. import myresources
 
 
 IMAGE_SIZE = 60
