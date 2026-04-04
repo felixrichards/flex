@@ -34,6 +34,9 @@ MATCH_HELP = """`champsmatch` commands:
   Link a Discord user to their league username for voice-based draft detection.
   If no user is provided, links the command caller.
 
+- `champsmatch viewplayers [player_or_username ...]`
+  Show role mappings table (name, usernames, roles, linked Discord IDs), optionally filtered.
+
 - `champsmatch help`
   Show this help."""
 
@@ -242,6 +245,46 @@ async def _handle_match_deleteplayer(ctx, args, db_path: str) -> None:
         await ctx.send(f"No mapping rows found for `{username}` -> `{name}`.")
 
 
+def _format_player_mapping_table(rows) -> str:
+    if not rows:
+        return "No player mappings found."
+
+    name_width = max(len("Name"), *(len(row.name) for row in rows))
+    usernames_width = max(len("Usernames"), *(len(", ".join(row.usernames)) for row in rows))
+    primary_width = max(len("Primary"), *(len(row.primary_role or "-") for row in rows))
+    secondary_width = max(len("Secondary"), *(len(row.secondary_role or "-") for row in rows))
+    discord_width = max(len("Discord IDs"), *(len(", ".join(row.discord_user_ids) or "-") for row in rows))
+
+    border = (
+        f"+-{'-' * name_width}-+-{'-' * usernames_width}-+-{'-' * primary_width}-"
+        f"+-{'-' * secondary_width}-+-{'-' * discord_width}-+"
+    )
+    lines = [
+        border,
+        (
+            f"| {'Name'.ljust(name_width)} | {'Usernames'.ljust(usernames_width)} | "
+            f"{'Primary'.ljust(primary_width)} | {'Secondary'.ljust(secondary_width)} | "
+            f"{'Discord IDs'.ljust(discord_width)} |"
+        ),
+        border,
+    ]
+    for row in rows:
+        usernames = ", ".join(row.usernames)
+        discord_ids = ", ".join(row.discord_user_ids) if row.discord_user_ids else "-"
+        lines.append(
+            f"| {row.name.ljust(name_width)} | {usernames.ljust(usernames_width)} | "
+            f"{(row.primary_role or '-').ljust(primary_width)} | {(row.secondary_role or '-').ljust(secondary_width)} | "
+            f"{discord_ids.ljust(discord_width)} |"
+        )
+    lines.append(border)
+    return "```text\n" + "\n".join(lines) + "\n```"
+
+
+async def _handle_match_viewplayers(ctx, args, db_path: str) -> None:
+    rows = await asyncio.to_thread(db.get_player_mapping_overview_rows, db_path, list(args) if args else None)
+    await ctx.send(_format_player_mapping_table(rows))
+
+
 async def _handle_match_delete(ctx, db_path: str) -> None:
     if not ctx.message.attachments:
         await ctx.send("Attach a scoreboard image and run `champsmatch delete`.")
@@ -291,6 +334,9 @@ async def handle_match(ctx, args, db_path: str) -> None:
         return
     if subcommand == "linkdiscord":
         await _handle_match_linkdiscord(ctx, args[1:], db_path)
+        return
+    if subcommand == "viewplayers":
+        await _handle_match_viewplayers(ctx, args[1:], db_path)
         return
     if subcommand == "delete":
         await _handle_match_delete(ctx, db_path)

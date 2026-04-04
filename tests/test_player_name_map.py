@@ -154,3 +154,39 @@ def test_delete_player_mapping_removes_only_target_pair(tmp_path) -> None:
 
     assert all(row.username != "AliasA" for row in remaining)
     assert any(row.username == "AliasB" for row in remaining)
+
+
+def test_player_mapping_overview_includes_usernames_roles_and_discord_ids(tmp_path) -> None:
+    db_path = str(tmp_path / "player_mapping_overview.db")
+    db.init_db(db_path)
+
+    db.set_player_mapping(db_path, "AliasOne", "Felix", "MID", "BOT")
+    db.set_player_mapping(db_path, "AliasTwo", "Felix")
+    db.set_discord_player_mapping(db_path, 111, "AliasOne")
+    db.set_discord_player_mapping(db_path, 222, "AliasTwo")
+
+    rows = db.get_player_mapping_overview_rows(db_path)
+    felix = [row for row in rows if row.name == "Felix"]
+    assert len(felix) == 1
+    row = felix[0]
+    assert {"AliasOne", "AliasTwo"}.issubset(set(row.usernames))
+    assert row.primary_role == "MID"
+    assert row.secondary_role == "BOT"
+    assert {"111", "222"} == set(row.discord_user_ids)
+
+
+def test_player_mapping_overview_filters_by_name_or_username(tmp_path) -> None:
+    db_path = str(tmp_path / "player_mapping_overview_filter.db")
+    db.init_db(db_path)
+
+    db.set_player_mapping(db_path, "AliasFelix", "Felix", "MID", "BOT")
+    db.set_player_mapping(db_path, "AliasJay", "Jay", "TOP", "JUNGLE")
+
+    by_name = db.get_player_mapping_overview_rows(db_path, ["Felix"])
+    assert [row.name for row in by_name] == ["Felix"]
+
+    by_username = db.get_player_mapping_overview_rows(db_path, ["AliasJay"])
+    assert [row.name for row in by_username] == ["Jay"]
+
+    multi = db.get_player_mapping_overview_rows(db_path, ["Felix", "AliasJay"])
+    assert [row.name for row in multi] == ["Felix", "Jay"]

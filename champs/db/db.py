@@ -41,6 +41,15 @@ class EloRow:
     losses: int
 
 
+@dataclass(frozen=True)
+class PlayerMappingOverviewRow:
+    name: str
+    usernames: tuple[str, ...]
+    primary_role: str | None
+    secondary_role: str | None
+    discord_user_ids: tuple[str, ...]
+
+
 def _engine(db_path: str):
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     return create_engine(f"sqlite:///{db_path}", future=True)
@@ -284,6 +293,59 @@ def get_discord_player_mappings(db_path: str, discord_user_ids: list[int] | list
                 query = query.where(DiscordPlayerMappingRecord.discord_user_id.in_(ids))
         rows = session.scalars(query).all()
     return {row.discord_user_id: row.player_username for row in rows}
+
+
+def get_player_mapping_overview_rows(
+    db_path: str, identifiers: list[str] | None = None
+) -> list[PlayerMappingOverviewRow]:
+    engine = _engine(db_path)
+    with Session(engine) as session:
+        mapping_rows = session.scalars(select(PlayerMappingRecord).order_by(PlayerMappingRecord.id.asc())).all()
+        discord_rows = session.scalars(select(DiscordPlayerMappingRecord)).all()
+
+    usernames_by_name: dict[str, set[str]] = {}
+    latest_role_by_name: dict[str, tuple[str | None, str | None]] = {}
+    for row in mapping_rows:
+        usernames_by_name.setdefault(row.name, set()).add(row.username)
+        if row.preferred_role:
+            latest_role_by_name[row.name] = (row.preferred_role, row.secondary_role)
+
+    discord_ids_by_username: dict[str, set[str]] = {}
+    for row in discord_rows:
+        discord_ids_by_username.setdefault(row.player_username, set()).add(row.discord_user_id)
+
+    output: list[PlayerMappingOverviewRow] = []
+    for name in sorted(usernames_by_name, key=str.casefold):
+        usernames = tuple(sorted(usernames_by_name[name], key=str.casefold))
+        primary_role, secondary_role = latest_role_by_name.get(name, (None, None))
+        discord_ids: set[str] = set()
+        for username in usernames:
+            discord_ids.update(discord_ids_by_username.get(username, set()))
+        output.append(
+            PlayerMappingOverviewRow(
+                name=name,
+                usernames=usernames,
+                primary_role=primary_role,
+                secondary_role=secondary_role,
+                discord_user_ids=tuple(sorted(discord_ids)),
+            )
+        )
+
+    if not identifiers:
+        return output
+
+    tokens = {token.strip().casefold() for token in identifiers if token.strip()}
+    if not tokens:
+        return output
+
+    filtered: list[PlayerMappingOverviewRow] = []
+    for row in output:
+        if row.name.casefold() in tokens:
+            filtered.append(row)
+            continue
+        if any(username.casefold() in tokens for username in row.usernames):
+            filtered.append(row)
+    return filtered
 
 
 def _resolve_query_names(session: Session, identifiers: list[str]) -> set[str]:
