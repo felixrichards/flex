@@ -2,7 +2,6 @@ import asyncio
 from types import SimpleNamespace
 
 from champs import player
-from champs import match
 
 
 class _FakeCtx:
@@ -55,12 +54,12 @@ def test_handle_match_linkdiscord_prefers_actual_name(monkeypatch) -> None:
     async def _fake_to_thread(func, *args, **kwargs):
         return func(*args, **kwargs)
 
-    monkeypatch.setattr(match.db, "resolve_player_identifier_for_link", _fake_resolve)
-    monkeypatch.setattr(match.db, "set_discord_player_mapping", _fake_set_discord)
-    monkeypatch.setattr(match.asyncio, "to_thread", _fake_to_thread)
+    monkeypatch.setattr(player.db, "resolve_player_identifier_for_link", _fake_resolve)
+    monkeypatch.setattr(player.db, "set_discord_player_mapping", _fake_set_discord)
+    monkeypatch.setattr(player.asyncio, "to_thread", _fake_to_thread)
 
     ctx = _FakeLinkCtx(author_id=9876)
-    asyncio.run(match._handle_match_linkdiscord(ctx, ["Felix"], "/tmp/test.db"))
+    asyncio.run(player._handle_player_linkdiscord(ctx, ["Felix"], "/tmp/test.db"))
 
     assert calls == [(9876, "Felix")]
     assert ctx.messages == ["Linked Discord user `9876` -> player `Felix`"]
@@ -79,12 +78,12 @@ def test_handle_match_linkdiscord_username_resolves_to_actual_name(monkeypatch) 
     async def _fake_to_thread(func, *args, **kwargs):
         return func(*args, **kwargs)
 
-    monkeypatch.setattr(match.db, "resolve_player_identifier_for_link", _fake_resolve)
-    monkeypatch.setattr(match.db, "set_discord_player_mapping", _fake_set_discord)
-    monkeypatch.setattr(match.asyncio, "to_thread", _fake_to_thread)
+    monkeypatch.setattr(player.db, "resolve_player_identifier_for_link", _fake_resolve)
+    monkeypatch.setattr(player.db, "set_discord_player_mapping", _fake_set_discord)
+    monkeypatch.setattr(player.asyncio, "to_thread", _fake_to_thread)
 
     ctx = _FakeLinkCtx(author_id=4321)
-    asyncio.run(match._handle_match_linkdiscord(ctx, ["MaBalls"], "/tmp/test.db"))
+    asyncio.run(player._handle_player_linkdiscord(ctx, ["MaBalls"], "/tmp/test.db"))
 
     assert calls == [(4321, "Felix")]
     assert ctx.messages == ["Linked Discord user `4321` -> player `Felix`"]

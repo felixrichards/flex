@@ -1,7 +1,6 @@
 import asyncio
 import json
 import os
-import re
 import tempfile
 from datetime import datetime, timezone
 
@@ -22,10 +21,6 @@ MATCH_HELP = """`champsmatch` commands:
 
 - `champsmatch delete`
   Attach a scoreboard image to delete the matching match from history.
-
-- `champsmatch linkdiscord <league_username> [@discord_user_or_id]`
-  Link a Discord user to their league username for voice-based draft detection.
-  If no user is provided, links the command caller.
 
 - `champsmatch help`
   Show this help."""
@@ -132,54 +127,6 @@ async def _handle_match_help(ctx) -> None:
     await ctx.send(MATCH_HELP)
 
 
-def _parse_discord_user_id(token: str) -> int | None:
-    stripped = token.strip()
-    mention_match = re.fullmatch(r"<@!?(\d+)>", stripped)
-    if mention_match:
-        return int(mention_match.group(1))
-    if stripped.isdigit():
-        return int(stripped)
-    return None
-
-
-async def _handle_match_linkdiscord(ctx, args, db_path: str) -> None:
-    if len(args) < 1:
-        await ctx.send("Usage: `champsmatch linkdiscord <league_username> [@discord_user_or_id]`")
-        return
-
-    player_identifier = args[0].strip()
-    if not player_identifier:
-        await ctx.send("Usage: `champsmatch linkdiscord <league_username> [@discord_user_or_id]`")
-        return
-
-    discord_user_id: int | None = None
-    if ctx.message.mentions:
-        discord_user_id = int(ctx.message.mentions[0].id)
-    elif len(args) >= 2:
-        discord_user_id = _parse_discord_user_id(args[1])
-        if discord_user_id is None:
-            await ctx.send("Could not parse Discord user. Use a mention like `@user` or a numeric Discord user ID.")
-            return
-    else:
-        discord_user_id = int(ctx.author.id)
-
-    resolved_player_name = await asyncio.to_thread(db.resolve_player_identifier_for_link, db_path, player_identifier)
-    if resolved_player_name is None:
-        await ctx.send(
-            f"Could not resolve `{player_identifier}` to a known player. "
-            "Use `champsplayer add <username> <name> <primary_role> <secondary_role>` first."
-        )
-        return
-
-    try:
-        await asyncio.to_thread(db.set_discord_player_mapping, db_path, discord_user_id, resolved_player_name)
-    except Exception as exc:
-        await ctx.send(f"Could not save Discord mapping: {exc}")
-        return
-
-    await ctx.send(f"Linked Discord user `{discord_user_id}` -> player `{resolved_player_name}`")
-
-
 async def _handle_match_delete(ctx, db_path: str) -> None:
     if not ctx.message.attachments:
         await ctx.send("Attach a scoreboard image and run `champsmatch delete`.")
@@ -220,9 +167,6 @@ async def handle_match(ctx, args, db_path: str) -> None:
     subcommand = args[0].lower() if args else "parse"
     if subcommand == "help":
         await _handle_match_help(ctx)
-        return
-    if subcommand == "linkdiscord":
-        await _handle_match_linkdiscord(ctx, args[1:], db_path)
         return
     if subcommand == "delete":
         await _handle_match_delete(ctx, db_path)

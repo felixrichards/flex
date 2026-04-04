@@ -338,17 +338,18 @@ def get_player_mapping_overview_rows(
         if row.preferred_role:
             latest_role_by_name[row.name] = (row.preferred_role, row.secondary_role)
 
-    discord_ids_by_username: dict[str, set[str]] = {}
+    discord_ids_by_identifier: dict[str, set[str]] = {}
     for row in discord_rows:
-        discord_ids_by_username.setdefault(row.player_username, set()).add(row.discord_user_id)
+        discord_ids_by_identifier.setdefault(row.player_username, set()).add(row.discord_user_id)
 
     output: list[PlayerMappingOverviewRow] = []
     for name in sorted(usernames_by_name, key=str.casefold):
         usernames = tuple(sorted(usernames_by_name[name], key=str.casefold))
         primary_role, secondary_role = latest_role_by_name.get(name, (None, None))
         discord_ids: set[str] = set()
+        discord_ids.update(discord_ids_by_identifier.get(name, set()))
         for username in usernames:
-            discord_ids.update(discord_ids_by_username.get(username, set()))
+            discord_ids.update(discord_ids_by_identifier.get(username, set()))
         output.append(
             PlayerMappingOverviewRow(
                 name=name,

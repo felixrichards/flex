@@ -28,14 +28,14 @@ async def get(ctx, *args):
 
 # `champsmatch [subcommand]`
 # Parse/confirm scoreboard matches and maintain mappings/history.
-# Subcommands: `help`, `linkdiscord`, `delete` (with screenshot), or default parse flow.
+# Subcommands: `help`, `delete` (with screenshot), or default parse flow.
 @bot.command()
 async def match(ctx, *args):
     await handle_match(ctx, args, DB_PATH)
 
 
 # `champsplayer [subcommand]`
-# Manage player mappings and role preferences (`add`, `view`, `delete`).
+# Manage player mappings and role preferences (`add`, `view`, `delete`, `linkdiscord`).
 @bot.command()
 async def player(ctx, *args):
     await handle_player(ctx, args, DB_PATH)
