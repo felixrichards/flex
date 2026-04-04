@@ -63,6 +63,18 @@ Accepted JSON shapes for `--input-file`:
 poetry run python manual_elo.py --db-path /opt/random-champs/data/champs.db --input-file backlog.json --recalculate
 ```
 
+### Soft reset ratings (compress toward 1000)
+
+```bash
+poetry run python manual_elo.py --db-path /opt/random-champs/data/champs.db --soft-reset
+```
+
+Custom factor and target:
+
+```bash
+poetry run python manual_elo.py --db-path /opt/random-champs/data/champs.db --soft-reset --soft-reset-factor 0.35 --soft-reset-target 1000
+```
+
 ### 4. Set mappings directly from CLI
 
 ```bash

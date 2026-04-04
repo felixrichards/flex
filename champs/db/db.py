@@ -338,19 +338,35 @@ def get_player_mapping_overview_rows(
         if row.preferred_role:
             latest_role_by_name[row.name] = (row.preferred_role, row.secondary_role)
 
-    discord_ids_by_identifier: dict[str, set[str]] = {}
-    for row in discord_rows:
-        discord_ids_by_identifier.setdefault(row.player_username, set()).add(row.discord_user_id)
+    names_by_username: dict[str, set[str]] = {}
+    row_by_name: dict[str, PlayerMappingOverviewRow] = {}
+    for row in output:
+        row_by_name[row.name.casefold()] = row
+        for username in row.usernames:
+            names_by_username.setdefault(username, set()).add(row.name)
 
-    output: list[PlayerMappingOverviewRow] = []
+    # Resolve each discord link to exactly one actual player name when possible.
+    # Priority:
+    # 1) exact/ci actual-name match
+    # 2) legacy username link only if username uniquely maps to one name
+    discord_ids_by_name: dict[str, set[str]] = {}
+    for row in discord_rows:
+        identifier = row.player_username
+        matched_row = row_by_name.get(identifier.casefold())
+        if matched_row is not None:
+            discord_ids_by_name.setdefault(matched_row.name, set()).add(row.discord_user_id)
+            continue
+        name_candidates = names_by_username.get(identifier, set())
+        if len(name_candidates) == 1:
+            name = next(iter(name_candidates))
+            discord_ids_by_name.setdefault(name, set()).add(row.discord_user_id)
+
+    output_with_discord: list[PlayerMappingOverviewRow] = []
     for name in sorted(usernames_by_name, key=str.casefold):
         usernames = tuple(sorted(usernames_by_name[name], key=str.casefold))
         primary_role, secondary_role = latest_role_by_name.get(name, (None, None))
-        discord_ids: set[str] = set()
-        discord_ids.update(discord_ids_by_identifier.get(name, set()))
-        for username in usernames:
-            discord_ids.update(discord_ids_by_identifier.get(username, set()))
-        output.append(
+        discord_ids = discord_ids_by_name.get(name, set())
+        output_with_discord.append(
             PlayerMappingOverviewRow(
                 name=name,
                 usernames=usernames,
@@ -361,7 +377,7 @@ def get_player_mapping_overview_rows(
         )
 
     if not identifiers:
-        return output
+        return output_with_discord
 
     normalized_identifiers = [token.strip() for token in identifiers if token.strip()]
     if not normalized_identifiers:
@@ -376,7 +392,7 @@ def get_player_mapping_overview_rows(
     selected_names: set[str] = set()
     for token in normalized_identifiers:
         # Prefer actual name resolution over username resolution.
-        row = row_by_name_key.get(token.casefold())
+        row = {r.name.casefold(): r for r in output_with_discord}.get(token.casefold())
         if row is not None:
             selected_names.add(row.name)
             continue
@@ -384,7 +400,7 @@ def get_player_mapping_overview_rows(
         for name in names_by_username.get(token, set()):
             selected_names.add(name)
 
-    return [row for row in output if row.name in selected_names]
+    return [row for row in output_with_discord if row.name in selected_names]
 
 
 def _resolve_query_names(session: Session, identifiers: list[str]) -> set[str]:

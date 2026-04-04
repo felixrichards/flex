@@ -137,6 +137,7 @@ def test_should_print_ratings_only_for_rating_relevant_actions() -> None:
             players_file=None,
             recalculate=False,
             reset_history=False,
+            soft_reset=False,
             set_mapping=None,
             set_preferred_role=None,
             show_player_mappings=False,
@@ -145,6 +146,7 @@ def test_should_print_ratings_only_for_rating_relevant_actions() -> None:
             self.players_file = players_file
             self.recalculate = recalculate
             self.reset_history = reset_history
+            self.soft_reset = soft_reset
             self.set_mapping = set_mapping
             self.set_preferred_role = set_preferred_role
             self.show_player_mappings = show_player_mappings
@@ -153,6 +155,7 @@ def test_should_print_ratings_only_for_rating_relevant_actions() -> None:
     assert manual_elo._should_print_ratings(Args(players_file="players.json")) is True
     assert manual_elo._should_print_ratings(Args(recalculate=True)) is True
     assert manual_elo._should_print_ratings(Args(reset_history=True)) is True
+    assert manual_elo._should_print_ratings(Args(soft_reset=True)) is True
 
 
 def test_should_print_player_mappings_for_show_flag_or_players_file() -> None:
@@ -206,3 +209,33 @@ def test_backup_db_file_creates_timestamped_copy(tmp_path) -> None:
     backup_path = manual_elo._backup_db_file(db_path)
     assert os.path.exists(backup_path)
     assert backup_path.startswith(db_path + ".backup-")
+
+
+def test_soft_reset_ratings_compresses_towards_target(tmp_path) -> None:
+    db_path = str(tmp_path / "manual_elo_soft_reset.db")
+    db.init_db(db_path)
+
+    manual_elo._ensure_players_exist(db_path, ["High", "Low", "Neutral"])
+    engine = db._engine(db_path)
+    with Session(engine) as session:
+        high = session.get(PlayerRecord, "High")
+        low = session.get(PlayerRecord, "Low")
+        neutral = session.get(PlayerRecord, "Neutral")
+        assert high is not None and low is not None and neutral is not None
+        high.rating = 1100
+        low.rating = 900
+        neutral.rating = 1000
+        session.commit()
+
+    updated_players, total_delta = manual_elo._soft_reset_ratings(db_path, factor=0.2, target=1000)
+    assert updated_players == 3
+    assert total_delta == 160.0
+
+    with Session(engine) as session:
+        high = session.get(PlayerRecord, "High")
+        low = session.get(PlayerRecord, "Low")
+        neutral = session.get(PlayerRecord, "Neutral")
+        assert high is not None and low is not None and neutral is not None
+        assert int(high.rating) == 1020
+        assert int(low.rating) == 980
+        assert int(neutral.rating) == 1000

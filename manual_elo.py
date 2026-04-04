@@ -107,6 +107,27 @@ def _reset_history_and_ratings(db_path: str) -> tuple[int, int, int]:
     return match_count, match_row_count, len(player_rows)
 
 
+def _soft_reset_ratings(db_path: str, factor: float, target: int) -> tuple[int, float]:
+    if not (0.0 <= factor <= 1.0):
+        raise ValueError("Soft reset factor must be between 0.0 and 1.0.")
+
+    engine = db._engine(db_path)
+    with Session(engine) as session:
+        players = session.scalars(select(PlayerRecord)).all()
+        if not players:
+            return 0, 0.0
+
+        total_delta = 0.0
+        for player in players:
+            old_rating = float(player.rating)
+            new_rating = float(target) + float(factor) * (old_rating - float(target))
+            rounded = int(round(new_rating))
+            total_delta += abs(old_rating - rounded)
+            player.rating = rounded
+        session.commit()
+    return len(players), total_delta
+
+
 def _backup_db_file(db_path: str) -> str:
     if not os.path.exists(db_path):
         raise FileNotFoundError(f"DB file not found for backup: {db_path}")
@@ -215,6 +236,7 @@ def _should_print_ratings(args) -> bool:
         or args.players_file
         or args.recalculate
         or args.reset_history
+        or args.soft_reset
         or args.set_mapping
         or args.set_preferred_role
     )
@@ -256,6 +278,23 @@ def main() -> None:
         help="Delete all stored match history and reset all existing player ELO ratings to initial value.",
     )
     parser.add_argument(
+        "--soft-reset",
+        action="store_true",
+        help="Compress current player ratings towards a target while preserving relative ordering.",
+    )
+    parser.add_argument(
+        "--soft-reset-factor",
+        type=float,
+        default=0.2,
+        help="Compression factor for --soft-reset (0.0..1.0). Example: 0.2 moves 1100->1020 and 900->980.",
+    )
+    parser.add_argument(
+        "--soft-reset-target",
+        type=int,
+        default=db.INITIAL_RATING,
+        help="Target rating used by --soft-reset (default: 1000).",
+    )
+    parser.add_argument(
         "--show-player-mappings",
         action="store_true",
         help="Show actual names, associated usernames, and preferred roles.",
@@ -267,13 +306,14 @@ def main() -> None:
         and not args.players_file
         and not args.recalculate
         and not args.reset_history
+        and not args.soft_reset
         and not args.set_mapping
         and not args.set_preferred_role
         and not args.show_player_mappings
     ):
         raise ValueError(
             "Provide --input-file, --players-file, --recalculate, --set-mapping, "
-            "--set-preferred-role, --reset-history, --show-player-mappings, or a combination."
+            "--set-preferred-role, --reset-history, --soft-reset, --show-player-mappings, or a combination."
         )
 
     db.init_db(args.db_path)
@@ -308,6 +348,19 @@ def main() -> None:
         print(f"Deleted matches: {deleted_matches}")
         print(f"Deleted match rows: {deleted_match_rows}")
         print(f"Reset player ratings: {reset_players}")
+
+    if args.soft_reset:
+        backup_path = _backup_db_file(args.db_path)
+        print(f"Created DB backup: {backup_path}")
+        updated_players, total_delta = _soft_reset_ratings(
+            args.db_path,
+            factor=args.soft_reset_factor,
+            target=args.soft_reset_target,
+        )
+        print(
+            f"Soft reset applied to {updated_players} player(s). "
+            f"factor={args.soft_reset_factor:.3f}, target={args.soft_reset_target}, total_elo_shift={total_delta:.0f}"
+        )
 
     if args.input_file:
         with open(args.input_file, "r", encoding="utf-8") as handle:
