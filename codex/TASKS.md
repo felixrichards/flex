@@ -10,7 +10,12 @@
   - `manual_elo.py` for ingestion/recalc/mapping updates
   - `manual_scoreboard.py` for direct image -> parsed JSON
 - Added DB-backed username->name mapping with role-aware rules.
+- Extended mapping rules to support both primary and secondary role metadata.
 - Added commands for mapping/admin actions and match deletion.
 - Added `champselo` command with filtered table output by username/name.
+- Added `manual_elo` mapping utilities for:
+  - setting mapping with optional role args
+  - setting preferred role
+  - loading bulk player mappings from JSON (`--players-file`)
 - Added substantial test coverage for schema, OCR resources, mapping edge cases, payload extraction, ELO, and DB behavior.
 - Refactored package structure into subpackages (`random_champs`, `scoreboard`, `db`, `common`) and route modules (`get.py`, `match.py`).

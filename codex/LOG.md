@@ -16,6 +16,8 @@
 - Added username and resolved-name storage on match rows.
 - Shifted mapping logic from static JSON runtime mapping to DB mapping rules.
 - Added role-aware mapping rules (`preferred_role`) and deterministic latest-rule precedence.
+- Extended mapping model to support `secondary_role` for each mapping rule.
+- Centralized role sanitization/validation in DB mapping write path via `RoleFilter`.
 - Preserved Wyn/Sean fallback behavior when explicit role rules are absent.
 - Added recalc mode that refreshes stored row attribution from current mappings.
 - Added `delete_match` DB operation with post-delete rating recompute.
@@ -25,9 +27,13 @@
   - duplicate input elimination
 - Added bot command coverage:
   - `champsmatch help`
-  - `champsmatch addplayer <player> <name> [role]`
+  - `champsmatch addplayer <player> <name> [primary_role] [secondary_role]`
   - `champsmatch delete` (screenshot)
   - `champselo [identifiers...]`
+- Added manual admin flows in `manual_elo.py`:
+  - `--set-mapping PLAYER NAME [PRIMARY_ROLE] [SECONDARY_ROLE]`
+  - `--set-preferred-role PLAYER ROLE`
+  - `--players-file` bulk mapping import using payload schema validation
 - Refactored package layout:
   - `champs/get.py`, `champs/match.py`, `champs/elo.py`
   - `champs/random_champs/*`
@@ -40,6 +46,7 @@
   - checksum behavior
   - JSON payload parsing
   - mapping edge cases
+  - mapping recalc reassignment
   - iterative ELO + dedupe
   - delete behavior
   - username/name ELO query behavior

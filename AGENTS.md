@@ -5,6 +5,7 @@ This repository contains a lightweight Discord bot for League of Legends custom-
 - scoreboard OCR parsing (`champsmatch`)
 - match history persistence + ELO tracking (SQLite + SQLAlchemy)
 - manual maintenance scripts (`manual_elo.py`, `manual_scoreboard.py`)
+- DB-backed username->name mapping with role-aware disambiguation (primary + secondary role)
 
 The app is optimized for a small private user group, but still has validation, tests, and reproducible CV/OCR behavior.
 
@@ -37,6 +38,22 @@ poetry run python -m champs
 poetry run python manual_elo.py --help
 poetry run python manual_scoreboard.py --help
 ```
+
+# Current Command Surface (Quick Reference)
+
+- `champsget ...`: random champion draft/generation commands.
+- `champsmatch help`: concise usage/help for all match subcommands.
+- `champsmatch` (with screenshot): parse scoreboard, confirm/correct, persist match + ELO delta.
+- `champsmatch addplayer <username> <name> [primary_role] [secondary_role]`: add/update username->name mapping rule.
+- `champsmatch delete` (with screenshot): parse + delete previously stored match checksum.
+- `champselo [identifiers...]`: show full ELO table or filtered players by real name/username.
+
+# Mapping + Role Notes
+
+- Mapping rules now live in DB (`player_mappings`), not only in static JSON.
+- Role normalization should happen in DB layer via `RoleFilter` (single normalization point).
+- Duplicate usernames (example: two `Wyn`) are disambiguated with preferred primary role first; secondary role is fallback metadata.
+- Preserve deterministic fallback when role-based disambiguation is inconclusive.
 
 # Testing Notes
 
