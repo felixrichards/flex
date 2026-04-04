@@ -181,3 +181,56 @@ def test_handle_draft_uses_discord_id_mapping_for_voice_members(tmp_path) -> Non
     assert len(ctx.messages) == 1
     assert "Blue Team" in ctx.messages[0]
     assert "Red Team" in ctx.messages[0]
+
+
+def test_handle_draft_ignores_unlinked_voice_members(tmp_path) -> None:
+    class _Member:
+        def __init__(self, user_id: int, name: str) -> None:
+            self.id = user_id
+            self.bot = False
+            self.display_name = name
+            self.global_name = None
+            self.name = name
+
+    class _VoiceChannel:
+        def __init__(self, channel_id: int, members) -> None:
+            self.id = channel_id
+            self.members = members
+
+    class _Guild:
+        def __init__(self, channels) -> None:
+            self.voice_channels = channels
+            self.afk_channel = None
+
+    db_path = str(tmp_path / "draft_voice_unlinked_ignored.db")
+    db.init_db(db_path)
+
+    role_pairs = [
+        ("TOP", "JUNGLE"),
+        ("JUNGLE", "TOP"),
+        ("MID", "BOT"),
+        ("BOT", "SUPP"),
+        ("SUPP", "MID"),
+        ("TOP", "MID"),
+        ("JUNGLE", "SUPP"),
+        ("MID", "TOP"),
+        ("BOT", "JUNGLE"),
+        ("SUPP", "BOT"),
+    ]
+    for idx, (primary, secondary) in enumerate(role_pairs, start=1):
+        league_username = f"League{idx}"
+        actual_name = f"Player{idx}"
+        db.set_player_mapping(db_path, league_username, actual_name, primary, secondary)
+        db.set_discord_player_mapping(db_path, 2000 + idx, league_username)
+
+    linked_members = [_Member(2000 + i, f"LinkedDiscord{i}") for i in range(1, 11)]
+    unlinked_members = [_Member(9001, "RandomFriend"), _Member(9002, "AnotherGuest")]
+    guild = _Guild([_VoiceChannel(1, linked_members + unlinked_members)])
+    ctx = _FakeCtx(guild=guild)
+
+    asyncio.run(handle_draft(ctx, tuple(), db_path))
+
+    assert len(ctx.messages) == 1
+    assert "Blue Team" in ctx.messages[0]
+    assert "Red Team" in ctx.messages[0]
+    assert "Unknown username -> name mappings" not in ctx.messages[0]

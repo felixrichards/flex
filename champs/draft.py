@@ -170,13 +170,12 @@ def _extract_voice_tokens(ctx, player_username_by_discord_id: dict[str, str]) ->
             if member.bot:
                 continue
             mapped_player_username = player_username_by_discord_id.get(str(member.id))
-            if mapped_player_username:
-                if mapped_player_username not in tokens:
-                    tokens.append(mapped_player_username)
+            # Voice auto-detection is Discord-ID driven only.
+            # If a voice user is not linked, they are ignored.
+            if not mapped_player_username:
                 continue
-            for candidate in (member.display_name, member.global_name, member.name):
-                if candidate and candidate not in tokens:
-                    tokens.append(candidate)
+            if mapped_player_username not in tokens:
+                tokens.append(mapped_player_username)
     return tokens
 
 
