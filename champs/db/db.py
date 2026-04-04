@@ -7,7 +7,14 @@ from sqlalchemy import create_engine, delete, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from champs.db.models import Base, MatchPlayerRecord, MatchRecord, PlayerMappingRecord, PlayerRecord
+from champs.db.models import (
+    Base,
+    DiscordPlayerMappingRecord,
+    MatchPlayerRecord,
+    MatchRecord,
+    PlayerMappingRecord,
+    PlayerRecord,
+)
 from champs.myresources import PLAYER_TO_NAME, ROLES_BY_CHAMP
 from champs.payloads import Match, MatchRow
 from champs.random_champs.filters import RoleFilter
@@ -127,15 +134,37 @@ def set_player_mapping(
 
     engine = _engine(db_path)
     with Session(engine) as session:
-        existing = session.scalar(
+        default_mapping = session.scalar(
             select(PlayerMappingRecord).where(
                 PlayerMappingRecord.username == normalized_username,
                 PlayerMappingRecord.name == normalized_name,
-                PlayerMappingRecord.preferred_role == normalized_role,
-                PlayerMappingRecord.secondary_role == normalized_secondary_role,
+                PlayerMappingRecord.preferred_role.is_(None),
+                PlayerMappingRecord.secondary_role.is_(None),
             )
         )
-        if existing is None:
+        if default_mapping is None:
+            session.add(
+                PlayerMappingRecord(
+                    username=normalized_username,
+                    name=normalized_name,
+                    preferred_role=None,
+                    secondary_role=None,
+                )
+            )
+
+        if normalized_role:
+            # Role preferences are unique per resolved player name.
+            # Clear any previous role assignment rows for this name, then store one fresh rule.
+            role_rows_for_name = session.scalars(
+                select(PlayerMappingRecord).where(
+                    PlayerMappingRecord.name == normalized_name,
+                    PlayerMappingRecord.preferred_role.is_not(None),
+                )
+            ).all()
+            for row in role_rows_for_name:
+                row.preferred_role = None
+                row.secondary_role = None
+
             session.add(
                 PlayerMappingRecord(
                     username=normalized_username,
@@ -161,24 +190,80 @@ def set_player_preferred_role(db_path: str, username: str, preferred_role: str) 
             .order_by(PlayerMappingRecord.id.desc())
         )
         name = latest.name if latest is not None else normalized_username
-        existing = session.scalar(
+        default_mapping = session.scalar(
             select(PlayerMappingRecord).where(
                 PlayerMappingRecord.username == normalized_username,
                 PlayerMappingRecord.name == name,
-                PlayerMappingRecord.preferred_role == normalized_role,
+                PlayerMappingRecord.preferred_role.is_(None),
                 PlayerMappingRecord.secondary_role.is_(None),
             )
         )
-        if existing is None:
+        if default_mapping is None:
             session.add(
                 PlayerMappingRecord(
                     username=normalized_username,
                     name=name,
-                    preferred_role=normalized_role,
+                    preferred_role=None,
                     secondary_role=None,
                 )
             )
+
+        role_rows_for_name = session.scalars(
+            select(PlayerMappingRecord).where(
+                PlayerMappingRecord.name == name,
+                PlayerMappingRecord.preferred_role.is_not(None),
+            )
+        ).all()
+        for row in role_rows_for_name:
+            row.preferred_role = None
+            row.secondary_role = None
+
+        session.add(
+            PlayerMappingRecord(
+                username=normalized_username,
+                name=name,
+                preferred_role=normalized_role,
+                secondary_role=None,
+            )
+        )
         session.commit()
+
+
+def set_discord_player_mapping(db_path: str, discord_user_id: int | str, player_username: str) -> None:
+    normalized_user_id = str(discord_user_id).strip()
+    normalized_username = player_username.strip()
+    if not normalized_user_id or not normalized_username:
+        raise ValueError("Discord user id and player username must be non-empty.")
+
+    engine = _engine(db_path)
+    with Session(engine) as session:
+        existing = session.scalar(
+            select(DiscordPlayerMappingRecord).where(
+                DiscordPlayerMappingRecord.discord_user_id == normalized_user_id
+            )
+        )
+        if existing is None:
+            session.add(
+                DiscordPlayerMappingRecord(
+                    discord_user_id=normalized_user_id,
+                    player_username=normalized_username,
+                )
+            )
+        else:
+            existing.player_username = normalized_username
+        session.commit()
+
+
+def get_discord_player_mappings(db_path: str, discord_user_ids: list[int] | list[str] | None = None) -> dict[str, str]:
+    engine = _engine(db_path)
+    with Session(engine) as session:
+        query = select(DiscordPlayerMappingRecord)
+        if discord_user_ids:
+            ids = [str(user_id).strip() for user_id in discord_user_ids if str(user_id).strip()]
+            if ids:
+                query = query.where(DiscordPlayerMappingRecord.discord_user_id.in_(ids))
+        rows = session.scalars(query).all()
+    return {row.discord_user_id: row.player_username for row in rows}
 
 
 def _resolve_query_names(session: Session, identifiers: list[str]) -> set[str]:

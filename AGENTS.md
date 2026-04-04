@@ -44,6 +44,11 @@ poetry run python manual_scoreboard.py --help
 ```bash
 poetry run pytest -q tests
 ```
+- Default unit test run (non-parser work):
+```bash
+poetry run pytest -q tests -k "not scoreboard_parser_resources"
+```
+- Rule: do not run scoreboard parser tests unless you are actively working on the scoreboard parser.
 - Scoreboard parser fixtures:
 ```bash
 poetry run pytest -q tests/test_scoreboard_parser_resources.py

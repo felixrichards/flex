@@ -1,6 +1,10 @@
 from datetime import timezone
 
 import manual_elo
+from champs.db import db
+from champs.db.models import PlayerRecord
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 
 def _row(player: str) -> dict:
@@ -69,3 +73,76 @@ def test_load_player_mappings_accepts_list_shape() -> None:
     assert len(rows) == 2
     assert rows[0].primary_role == "BOT"
     assert rows[1].secondary_role is None
+
+
+def test_get_player_mapping_rows_groups_usernames_by_name_and_latest_roles(tmp_path) -> None:
+    db_path = str(tmp_path / "manual_elo_player_mappings.db")
+    db.init_db(db_path)
+
+    db.set_player_mapping(db_path, "AliasOne", "Felix", "MID", "BOT")
+    db.set_player_mapping(db_path, "AliasTwo", "Felix")
+    db.set_player_mapping(db_path, "AliasThree", "Felix", "TOP", "JUNGLE")
+
+    rows = manual_elo._get_player_mapping_rows(db_path)
+    felix = [row for row in rows if row[0] == "Felix"]
+    assert len(felix) == 1
+    _, usernames, primary, secondary = felix[0]
+    username_tokens = {token.strip() for token in usernames.split(",")}
+    assert {"AliasOne", "AliasTwo", "AliasThree"}.issubset(username_tokens)
+    assert primary == "TOP"
+    assert secondary == "JUNGLE"
+
+
+def test_ensure_players_exist_adds_missing_and_skips_existing(tmp_path) -> None:
+    db_path = str(tmp_path / "manual_elo_add_players.db")
+    db.init_db(db_path)
+
+    added_first = manual_elo._ensure_players_exist(db_path, ["Felix", "Wyn", "Felix"])
+    assert added_first == 2
+
+    engine = db._engine(db_path)
+    with Session(engine) as session:
+        names = set(session.scalars(select(PlayerRecord.name)).all())
+    assert {"Felix", "Wyn"}.issubset(names)
+
+    added_second = manual_elo._ensure_players_exist(db_path, ["Felix", "Jay"])
+    assert added_second == 1
+
+    with Session(engine) as session:
+        final_names = set(session.scalars(select(PlayerRecord.name)).all())
+    assert {"Felix", "Wyn", "Jay"}.issubset(final_names)
+
+
+def test_should_print_ratings_only_for_rating_relevant_actions() -> None:
+    class Args:
+        def __init__(
+            self,
+            *,
+            input_file=None,
+            players_file=None,
+            recalculate=False,
+            set_mapping=None,
+            set_preferred_role=None,
+            show_player_mappings=False,
+        ) -> None:
+            self.input_file = input_file
+            self.players_file = players_file
+            self.recalculate = recalculate
+            self.set_mapping = set_mapping
+            self.set_preferred_role = set_preferred_role
+            self.show_player_mappings = show_player_mappings
+
+    assert manual_elo._should_print_ratings(Args(show_player_mappings=True)) is False
+    assert manual_elo._should_print_ratings(Args(players_file="players.json")) is True
+    assert manual_elo._should_print_ratings(Args(recalculate=True)) is True
+
+
+def test_should_print_player_mappings_for_show_flag_or_players_file() -> None:
+    class Args:
+        def __init__(self, *, players_file=None, show_player_mappings=False) -> None:
+            self.players_file = players_file
+            self.show_player_mappings = show_player_mappings
+
+    assert manual_elo._should_print_player_mappings(Args(players_file="players.json")) is True
+    assert manual_elo._should_print_player_mappings(Args(show_player_mappings=True)) is True
+    assert manual_elo._should_print_player_mappings(Args()) is False

@@ -43,3 +43,5 @@
   - iterative ELO + dedupe
   - delete behavior
   - username/name ELO query behavior
+- Testing workflow convention:
+  - Default unit test runs should exclude scoreboard parser resource tests unless parser code is being changed.

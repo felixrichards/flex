@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from champs.db import db
-from champs.db.models import MatchPlayerRecord, PlayerRecord
+from champs.db.models import MatchPlayerRecord, PlayerMappingRecord, PlayerRecord
 from champs.payloads import Match, PlayerMappingImport, PlayerMappingRow
 
 
@@ -73,6 +73,24 @@ def _insert_matches(db_path: str, matches: Iterable[Match]) -> tuple[int, int]:
     return inserted, skipped
 
 
+def _ensure_players_exist(db_path: str, names: Iterable[str]) -> int:
+    engine = db._engine(db_path)
+    unique_names = sorted({name.strip() for name in names if name and name.strip()}, key=str.casefold)
+    if not unique_names:
+        return 0
+
+    with Session(engine) as session:
+        existing_names = set(session.scalars(select(PlayerRecord.name)).all())
+        added = 0
+        for name in unique_names:
+            if name in existing_names:
+                continue
+            session.add(PlayerRecord(name=name, rating=db.INITIAL_RATING))
+            added += 1
+        session.commit()
+    return added
+
+
 def _print_ratings_table(db_path: str) -> None:
     engine = db._engine(db_path)
     with Session(engine) as session:
@@ -119,6 +137,69 @@ def _print_ratings_table(db_path: str) -> None:
     print(border)
 
 
+def _get_player_mapping_rows(db_path: str) -> list[tuple[str, str, str, str]]:
+    engine = db._engine(db_path)
+    with Session(engine) as session:
+        mapping_rows = session.scalars(select(PlayerMappingRecord).order_by(PlayerMappingRecord.id.asc())).all()
+
+    usernames_by_name: dict[str, set[str]] = {}
+    latest_role_by_name: dict[str, tuple[str, str]] = {}
+    for row in mapping_rows:
+        usernames_by_name.setdefault(row.name, set()).add(row.username)
+        if row.preferred_role:
+            latest_role_by_name[row.name] = (row.preferred_role, row.secondary_role or "-")
+
+    output_rows: list[tuple[str, str, str, str]] = []
+    for name in sorted(usernames_by_name, key=str.casefold):
+        usernames = ", ".join(sorted(usernames_by_name[name], key=str.casefold))
+        primary, secondary = latest_role_by_name.get(name, ("-", "-"))
+        output_rows.append((name, usernames, primary, secondary))
+    return output_rows
+
+
+def _print_player_mappings_table(db_path: str) -> None:
+    rows = _get_player_mapping_rows(db_path)
+    if not rows:
+        print("No player mappings found in DB.")
+        return
+
+    name_width = max(len("Name"), *(len(name) for name, _, _, _ in rows))
+    usernames_width = max(len("Usernames"), *(len(usernames) for _, usernames, _, _ in rows))
+    primary_width = max(len("Primary"), *(len(primary) for _, _, primary, _ in rows))
+    secondary_width = max(len("Secondary"), *(len(secondary) for _, _, _, secondary in rows))
+    border = (
+        f"+-{'-' * name_width}-+-{'-' * usernames_width}-+-{'-' * primary_width}-+-{'-' * secondary_width}-+"
+    )
+
+    print("\nPlayer mappings")
+    print(border)
+    print(
+        f"| {'Name'.ljust(name_width)} | {'Usernames'.ljust(usernames_width)} | "
+        f"{'Primary'.ljust(primary_width)} | {'Secondary'.ljust(secondary_width)} |"
+    )
+    print(border)
+    for name, usernames, primary, secondary in rows:
+        print(
+            f"| {name.ljust(name_width)} | {usernames.ljust(usernames_width)} | "
+            f"{primary.ljust(primary_width)} | {secondary.ljust(secondary_width)} |"
+        )
+    print(border)
+
+
+def _should_print_ratings(args) -> bool:
+    return bool(
+        args.input_file
+        or args.players_file
+        or args.recalculate
+        or args.set_mapping
+        or args.set_preferred_role
+    )
+
+
+def _should_print_player_mappings(args) -> bool:
+    return bool(args.show_player_mappings or args.players_file)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Manual ELO maintenance: add backlog matches and/or rebuild ratings from full history."
@@ -145,11 +226,24 @@ def main() -> None:
         action="store_true",
         help="Rebuild all player ratings from full stored match history",
     )
+    parser.add_argument(
+        "--show-player-mappings",
+        action="store_true",
+        help="Show actual names, associated usernames, and preferred roles.",
+    )
     args = parser.parse_args()
 
-    if not args.input_file and not args.players_file and not args.recalculate and not args.set_mapping and not args.set_preferred_role:
+    if (
+        not args.input_file
+        and not args.players_file
+        and not args.recalculate
+        and not args.set_mapping
+        and not args.set_preferred_role
+        and not args.show_player_mappings
+    ):
         raise ValueError(
-            "Provide --input-file, --players-file, --recalculate, --set-mapping, --set-preferred-role, or a combination."
+            "Provide --input-file, --players-file, --recalculate, --set-mapping, "
+            "--set-preferred-role, --show-player-mappings, or a combination."
         )
 
     db.init_db(args.db_path)
@@ -197,13 +291,19 @@ def main() -> None:
                 row.primary_role,
                 row.secondary_role,
             )
+        added_players = _ensure_players_exist(args.db_path, (row.name for row in rows))
         print(f"Loaded player mappings: {len(rows)}")
+        print(f"Added players: {added_players}")
 
     if args.recalculate:
         db.recalculate_all_ratings(args.db_path, refresh_mappings=True)
         print("Ratings recalculated from complete match history.")
 
-    _print_ratings_table(args.db_path)
+    if _should_print_player_mappings(args):
+        _print_player_mappings_table(args.db_path)
+
+    if _should_print_ratings(args):
+        _print_ratings_table(args.db_path)
 
 
 if __name__ == "__main__":

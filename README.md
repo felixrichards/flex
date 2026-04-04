@@ -17,6 +17,10 @@ Discord command prefix is `champs` (for example `champsget`, `champsmatch`, `cha
   Add username -> real-name mapping, optionally role-scoped.
   Role aliases are supported (for example `adc` -> `BOT`, `jgl` -> `JUNGLE`).
 
+- `champsmatch linkdiscord <league_username> [@discord_user_or_id]`
+  Link Discord user IDs to league usernames so voice-channel detection works when Discord names differ.
+  If no Discord user is passed, links the command caller.
+
 - `champsmatch help`
   Show match command help.
 
@@ -96,6 +100,20 @@ Compact JSON output:
 
 ```bash
 poetry run python manual_scoreboard.py /path/to/scoreboard.png --compact
+```
+
+## Manual Draft Script (`manual_draft.py`)
+
+Use `manual_draft.py` to generate a random `5v5` draft from all available players in DB.
+
+```bash
+poetry run python manual_draft.py --db-path /opt/random-champs/data/champs.db
+```
+
+Optional deterministic sampling:
+
+```bash
+poetry run python manual_draft.py --db-path /opt/random-champs/data/champs.db --seed 1337
 ```
 
 ## Testing

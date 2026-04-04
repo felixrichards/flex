@@ -7,10 +7,19 @@ from .db import (
     recalculate_all_ratings,
     resolve_match_names,
     get_elo_rows,
+    get_discord_player_mappings,
+    set_discord_player_mapping,
     set_player_mapping,
     set_player_preferred_role,
 )
-from .models import Base, MatchPlayerRecord, MatchRecord, PlayerMappingRecord, PlayerRecord
+from .models import (
+    Base,
+    DiscordPlayerMappingRecord,
+    MatchPlayerRecord,
+    MatchRecord,
+    PlayerMappingRecord,
+    PlayerRecord,
+)
 
 __all__ = [
     "db",
@@ -18,8 +27,10 @@ __all__ = [
     "init_db",
     "set_player_mapping",
     "set_player_preferred_role",
+    "set_discord_player_mapping",
     "insert_match",
     "get_elo_rows",
+    "get_discord_player_mappings",
     "delete_match",
     "recalculate_all_ratings",
     "resolve_match_names",
@@ -28,4 +39,5 @@ __all__ = [
     "MatchPlayerRecord",
     "PlayerRecord",
     "PlayerMappingRecord",
+    "DiscordPlayerMappingRecord",
 ]
