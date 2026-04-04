@@ -133,3 +133,24 @@ def test_repeated_role_set_for_same_username_updates_instead_of_accumulating(tmp
     assert len(role_rows) == 1
     assert role_rows[0].preferred_role == "TOP"
     assert role_rows[0].secondary_role == "JUNGLE"
+
+
+def test_delete_player_mapping_removes_only_target_pair(tmp_path) -> None:
+    db_path = str(tmp_path / "delete_player_mapping.db")
+    db.init_db(db_path)
+
+    db.set_player_mapping(db_path, "AliasA", "Felix")
+    db.set_player_mapping(db_path, "AliasA", "Felix", "MID", "BOT")
+    db.set_player_mapping(db_path, "AliasB", "Felix")
+
+    deleted = db.delete_player_mapping(db_path, "AliasA", "Felix")
+    assert deleted == 2
+
+    engine = db._engine(db_path)
+    with Session(engine) as session:
+        remaining = session.scalars(
+            select(PlayerMappingRecord).where(PlayerMappingRecord.name == "Felix")
+        ).all()
+
+    assert all(row.username != "AliasA" for row in remaining)
+    assert any(row.username == "AliasB" for row in remaining)

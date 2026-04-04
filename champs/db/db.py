@@ -254,6 +254,26 @@ def set_discord_player_mapping(db_path: str, discord_user_id: int | str, player_
         session.commit()
 
 
+def delete_player_mapping(db_path: str, username: str, name: str) -> int:
+    normalized_username = username.strip()
+    normalized_name = name.strip()
+    if not normalized_username or not normalized_name:
+        raise ValueError("Username and name must be non-empty.")
+
+    engine = _engine(db_path)
+    with Session(engine) as session:
+        rows = session.scalars(
+            select(PlayerMappingRecord).where(
+                PlayerMappingRecord.username == normalized_username,
+                PlayerMappingRecord.name == normalized_name,
+            )
+        ).all()
+        for row in rows:
+            session.delete(row)
+        session.commit()
+        return len(rows)
+
+
 def get_discord_player_mappings(db_path: str, discord_user_ids: list[int] | list[str] | None = None) -> dict[str, str]:
     engine = _engine(db_path)
     with Session(engine) as session:

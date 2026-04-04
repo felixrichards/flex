@@ -26,6 +26,9 @@ MATCH_HELP = """`champsmatch` commands:
   Add a username -> name mapping, optionally scoped by roles.
   Example: `champsmatch addplayer MaBalls Felix adc top`
 
+- `champsmatch deleteplayer <username> <name>`
+  Delete username -> name mapping rows for that pair.
+
 - `champsmatch linkdiscord <league_username> [@discord_user_or_id]`
   Link a Discord user to their league username for voice-based draft detection.
   If no user is provided, links the command caller.
@@ -207,6 +210,29 @@ async def _handle_match_linkdiscord(ctx, args, db_path: str) -> None:
     await ctx.send(f"Linked Discord user `{discord_user_id}` -> league username `{league_username}`")
 
 
+async def _handle_match_deleteplayer(ctx, args, db_path: str) -> None:
+    if len(args) < 2:
+        await ctx.send("Usage: `champsmatch deleteplayer <username> <name>`")
+        return
+
+    username = args[0].strip()
+    name = " ".join(args[1:]).strip()
+    if not username or not name:
+        await ctx.send("Usage: `champsmatch deleteplayer <username> <name>`")
+        return
+
+    try:
+        deleted = await asyncio.to_thread(db.delete_player_mapping, db_path, username, name)
+    except Exception as exc:
+        await ctx.send(f"Could not delete player mapping: {exc}")
+        return
+
+    if deleted > 0:
+        await ctx.send(f"Deleted {deleted} mapping row(s) for `{username}` -> `{name}`.")
+    else:
+        await ctx.send(f"No mapping rows found for `{username}` -> `{name}`.")
+
+
 async def _handle_match_delete(ctx, db_path: str) -> None:
     if not ctx.message.attachments:
         await ctx.send("Attach a scoreboard image and run `champsmatch delete`.")
@@ -250,6 +276,9 @@ async def handle_match(ctx, args, db_path: str) -> None:
         return
     if subcommand == "addplayer":
         await _handle_match_addplayer(ctx, args[1:], db_path)
+        return
+    if subcommand == "deleteplayer":
+        await _handle_match_deleteplayer(ctx, args[1:], db_path)
         return
     if subcommand == "linkdiscord":
         await _handle_match_linkdiscord(ctx, args[1:], db_path)

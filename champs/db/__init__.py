@@ -2,6 +2,7 @@ from . import db
 from .db import (
     _engine,
     delete_match,
+    delete_player_mapping,
     init_db,
     insert_match,
     recalculate_all_ratings,
@@ -32,6 +33,7 @@ __all__ = [
     "get_elo_rows",
     "get_discord_player_mappings",
     "delete_match",
+    "delete_player_mapping",
     "recalculate_all_ratings",
     "resolve_match_names",
     "Base",
