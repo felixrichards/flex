@@ -282,3 +282,31 @@ def test_handle_draft_errors_when_same_player_in_plus_and_minus(tmp_path) -> Non
     assert len(ctx.messages) == 1
     assert "Conflicting draft modifiers" in ctx.messages[0]
     assert "Felix" in ctx.messages[0]
+
+
+def test_handle_draft_randomly_samples_when_more_than_ten_players(tmp_path) -> None:
+    db_path = str(tmp_path / "draft_more_than_ten.db")
+    db.init_db(db_path)
+
+    role_cycle = [
+        ("TOP", "JUNGLE"),
+        ("JUNGLE", "MID"),
+        ("MID", "BOT"),
+        ("BOT", "SUPP"),
+        ("SUPP", "TOP"),
+    ]
+    player_tokens: list[str] = []
+    for idx in range(1, 12):
+        username = f"U{idx}"
+        name = f"P{idx}"
+        primary, secondary = role_cycle[(idx - 1) % len(role_cycle)]
+        db.set_player_mapping(db_path, username, name, primary, secondary)
+        player_tokens.append(username)
+
+    ctx = _FakeCtx()
+    asyncio.run(handle_draft(ctx, tuple(player_tokens), db_path))
+
+    assert len(ctx.messages) == 1
+    assert "More than 10 players available (11)" in ctx.messages[0]
+    assert "Blue Team" in ctx.messages[0]
+    assert "Red Team" in ctx.messages[0]

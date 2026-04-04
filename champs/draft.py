@@ -468,17 +468,28 @@ async def handle_draft(ctx, args, db_path: str) -> None:
     players = _resolve_players(merged_tokens, resolver_state)
     players = [player for player in players if player.name.casefold() not in removed_name_keys]
 
-    if len(players) != len(ROLES) * 2:
+    required_players = len(ROLES) * 2
+    if len(players) < required_players:
         source_hint = "voice channels (+/- overrides)" if not explicit else "explicit list (+/- overrides)"
         await ctx.send(
             f"Need exactly 10 unique players; resolved {len(players)} from {source_hint}.\n"
             "Use `champsdraft help` for syntax."
         )
         return
+    sampled_from: int | None = None
+    if len(players) > required_players:
+        sampled_from = len(players)
+        players = random.sample(players, required_players)
 
     try:
         result = _build_draft(players, randomize=True)
     except ValueError as exc:
         await ctx.send(str(exc))
+        return
+    if sampled_from is not None:
+        await ctx.send(
+            f"More than 10 players available ({sampled_from}). Randomly selected 10 for this draft.\n"
+            f"{_format_draft_message(result)}"
+        )
         return
     await ctx.send(_format_draft_message(result))
