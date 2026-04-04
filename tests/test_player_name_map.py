@@ -190,3 +190,14 @@ def test_player_mapping_overview_filters_by_name_or_username(tmp_path) -> None:
 
     multi = db.get_player_mapping_overview_rows(db_path, ["Felix", "AliasJay"])
     assert [row.name for row in multi] == ["Felix", "Jay"]
+
+
+def test_player_mapping_overview_prefers_actual_name_over_username(tmp_path) -> None:
+    db_path = str(tmp_path / "player_mapping_overview_name_precedence.db")
+    db.init_db(db_path)
+
+    db.set_player_mapping(db_path, "AliasFelix", "Felix", "MID", "BOT")
+    db.set_player_mapping(db_path, "Felix", "NotFelix", "TOP", "JUNGLE")
+
+    rows = db.get_player_mapping_overview_rows(db_path, ["Felix"])
+    assert [row.name for row in rows] == ["Felix"]

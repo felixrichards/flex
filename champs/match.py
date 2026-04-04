@@ -147,8 +147,8 @@ async def _handle_match_addplayer(ctx, args, db_path: str) -> None:
         await ctx.send("Usage: `champsmatch addplayer <player> <name> [primary_role] [secondary_role]`")
         return
     username = args[0].strip()
-    primary_role = args[-1] if len(args) >= 3 else None
-    secondary_role = args[-2] if len(args) >= 4 else None
+    primary_role = args[-2] if len(args) >= 4 else (args[-1] if len(args) >= 3 else None)
+    secondary_role = args[-1] if len(args) >= 4 else None
     if secondary_role:
         name = " ".join(args[1:-2]).strip()
     elif primary_role:

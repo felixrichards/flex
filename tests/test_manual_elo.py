@@ -93,15 +93,19 @@ def test_get_player_mapping_rows_groups_usernames_by_name_and_latest_roles(tmp_p
     db.set_player_mapping(db_path, "AliasOne", "Felix", "MID", "BOT")
     db.set_player_mapping(db_path, "AliasTwo", "Felix")
     db.set_player_mapping(db_path, "AliasThree", "Felix", "TOP", "JUNGLE")
+    db.set_discord_player_mapping(db_path, 111, "AliasOne")
+    db.set_discord_player_mapping(db_path, 222, "AliasTwo")
 
     rows = manual_elo._get_player_mapping_rows(db_path)
     felix = [row for row in rows if row[0] == "Felix"]
     assert len(felix) == 1
-    _, usernames, primary, secondary = felix[0]
+    _, usernames, primary, secondary, discord_ids = felix[0]
     username_tokens = {token.strip() for token in usernames.split(",")}
     assert {"AliasOne", "AliasTwo", "AliasThree"}.issubset(username_tokens)
     assert primary == "TOP"
     assert secondary == "JUNGLE"
+    discord_tokens = {token.strip() for token in discord_ids.split(",")}
+    assert {"111", "222"}.issubset(discord_tokens)
 
 
 def test_ensure_players_exist_adds_missing_and_skips_existing(tmp_path) -> None:

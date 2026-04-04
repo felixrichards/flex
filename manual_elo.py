@@ -11,7 +11,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from champs.db import db
-from champs.db.models import MatchPlayerRecord, MatchRecord, PlayerMappingRecord, PlayerRecord
+from champs.db.models import MatchPlayerRecord, MatchRecord, PlayerRecord
 from champs.payloads import Match, PlayerMappingImport, PlayerMappingRow
 
 
@@ -162,24 +162,18 @@ def _print_ratings_table(db_path: str) -> None:
     print(border)
 
 
-def _get_player_mapping_rows(db_path: str) -> list[tuple[str, str, str, str]]:
-    engine = db._engine(db_path)
-    with Session(engine) as session:
-        mapping_rows = session.scalars(select(PlayerMappingRecord).order_by(PlayerMappingRecord.id.asc())).all()
-
-    usernames_by_name: dict[str, set[str]] = {}
-    latest_role_by_name: dict[str, tuple[str, str]] = {}
-    for row in mapping_rows:
-        usernames_by_name.setdefault(row.name, set()).add(row.username)
-        if row.preferred_role:
-            latest_role_by_name[row.name] = (row.preferred_role, row.secondary_role or "-")
-
-    output_rows: list[tuple[str, str, str, str]] = []
-    for name in sorted(usernames_by_name, key=str.casefold):
-        usernames = ", ".join(sorted(usernames_by_name[name], key=str.casefold))
-        primary, secondary = latest_role_by_name.get(name, ("-", "-"))
-        output_rows.append((name, usernames, primary, secondary))
-    return output_rows
+def _get_player_mapping_rows(db_path: str) -> list[tuple[str, str, str, str, str]]:
+    rows = db.get_player_mapping_overview_rows(db_path)
+    return [
+        (
+            row.name,
+            ", ".join(row.usernames),
+            row.primary_role or "-",
+            row.secondary_role or "-",
+            ", ".join(row.discord_user_ids) if row.discord_user_ids else "-",
+        )
+        for row in rows
+    ]
 
 
 def _print_player_mappings_table(db_path: str) -> None:
@@ -188,25 +182,29 @@ def _print_player_mappings_table(db_path: str) -> None:
         print("No player mappings found in DB.")
         return
 
-    name_width = max(len("Name"), *(len(name) for name, _, _, _ in rows))
-    usernames_width = max(len("Usernames"), *(len(usernames) for _, usernames, _, _ in rows))
-    primary_width = max(len("Primary"), *(len(primary) for _, _, primary, _ in rows))
-    secondary_width = max(len("Secondary"), *(len(secondary) for _, _, _, secondary in rows))
+    name_width = max(len("Name"), *(len(name) for name, _, _, _, _ in rows))
+    usernames_width = max(len("Usernames"), *(len(usernames) for _, usernames, _, _, _ in rows))
+    primary_width = max(len("Primary"), *(len(primary) for _, _, primary, _, _ in rows))
+    secondary_width = max(len("Secondary"), *(len(secondary) for _, _, _, secondary, _ in rows))
+    discord_width = max(len("Discord IDs"), *(len(discord_ids) for _, _, _, _, discord_ids in rows))
     border = (
-        f"+-{'-' * name_width}-+-{'-' * usernames_width}-+-{'-' * primary_width}-+-{'-' * secondary_width}-+"
+        f"+-{'-' * name_width}-+-{'-' * usernames_width}-+-{'-' * primary_width}-"
+        f"+-{'-' * secondary_width}-+-{'-' * discord_width}-+"
     )
 
     print("\nPlayer mappings")
     print(border)
     print(
         f"| {'Name'.ljust(name_width)} | {'Usernames'.ljust(usernames_width)} | "
-        f"{'Primary'.ljust(primary_width)} | {'Secondary'.ljust(secondary_width)} |"
+        f"{'Primary'.ljust(primary_width)} | {'Secondary'.ljust(secondary_width)} | "
+        f"{'Discord IDs'.ljust(discord_width)} |"
     )
     print(border)
-    for name, usernames, primary, secondary in rows:
+    for name, usernames, primary, secondary, discord_ids in rows:
         print(
             f"| {name.ljust(name_width)} | {usernames.ljust(usernames_width)} | "
-            f"{primary.ljust(primary_width)} | {secondary.ljust(secondary_width)} |"
+            f"{primary.ljust(primary_width)} | {secondary.ljust(secondary_width)} | "
+            f"{discord_ids.ljust(discord_width)} |"
         )
     print(border)
 

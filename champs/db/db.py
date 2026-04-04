@@ -334,18 +334,28 @@ def get_player_mapping_overview_rows(
     if not identifiers:
         return output
 
-    tokens = {token.strip().casefold() for token in identifiers if token.strip()}
-    if not tokens:
+    normalized_identifiers = [token.strip() for token in identifiers if token.strip()]
+    if not normalized_identifiers:
         return output
 
-    filtered: list[PlayerMappingOverviewRow] = []
+    row_by_name_key = {row.name.casefold(): row for row in output}
+    names_by_username: dict[str, set[str]] = {}
     for row in output:
-        if row.name.casefold() in tokens:
-            filtered.append(row)
+        for username in row.usernames:
+            names_by_username.setdefault(username, set()).add(row.name)
+
+    selected_names: set[str] = set()
+    for token in normalized_identifiers:
+        # Prefer actual name resolution over username resolution.
+        row = row_by_name_key.get(token.casefold())
+        if row is not None:
+            selected_names.add(row.name)
             continue
-        if any(username.casefold() in tokens for username in row.usernames):
-            filtered.append(row)
-    return filtered
+
+        for name in names_by_username.get(token, set()):
+            selected_names.add(name)
+
+    return [row for row in output if row.name in selected_names]
 
 
 def _resolve_query_names(session: Session, identifiers: list[str]) -> set[str]:
