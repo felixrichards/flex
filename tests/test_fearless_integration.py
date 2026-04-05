@@ -44,6 +44,28 @@ def test_handle_fearless_enable_add_remove_and_list() -> None:
     assert ctx.messages[3][0] == "Nunu & Willump"
 
 
+def test_handle_fearless_status_shows_waiting_when_no_game_started() -> None:
+    ctx = _FakeCtx(channel_id=91)
+
+    asyncio.run(fearless.handle_fearless(ctx, ("enable",)))
+    asyncio.run(fearless.handle_fearless(ctx, ("status",)))
+
+    assert "Clock: waiting for first recorded game." in ctx.messages[1][0]
+
+
+def test_handle_fearless_status_shows_started_and_remaining_after_first_game() -> None:
+    ctx = _FakeCtx(channel_id=92)
+
+    asyncio.run(fearless.handle_fearless(ctx, ("enable",)))
+    updated, _ = fearless.record_match_champions(ctx.channel.id, fearless.ALL_CHAMPS[:10])
+    assert updated is True
+    asyncio.run(fearless.handle_fearless(ctx, ("status",)))
+
+    status_text = ctx.messages[1][0]
+    assert "Clock started: `" in status_text
+    assert "Auto-reset in: `" in status_text
+
+
 def test_handle_fearless_unknown_champion_is_rejected() -> None:
     ctx = _FakeCtx(channel_id=88)
 

@@ -96,6 +96,10 @@ def _format_duration(duration: timedelta) -> str:
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
 
+def _format_utc_timestamp(value: datetime) -> str:
+    return value.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
 def _apply_rollover(state: FearlessState, now: datetime) -> bool:
     if state.start is None:
         return False
@@ -175,10 +179,14 @@ def _status_text(channel_id: int, now: datetime | None = None) -> str:
         f"Banned champions: `{len(state.banned)}`",
     ]
 
-    if state.enabled and state.start is not None:
-        remaining = _state_remaining_window(state, now)
-        if remaining is not None:
-            lines.append(f"Auto-reset in: `{_format_duration(remaining)}`")
+    if state.enabled:
+        if state.start is None:
+            lines.append("Clock: waiting for first recorded game.")
+        else:
+            lines.append(f"Clock started: `{_format_utc_timestamp(state.start)}`")
+            remaining = _state_remaining_window(state, now)
+            if remaining is not None:
+                lines.append(f"Auto-reset in: `{_format_duration(remaining)}`")
 
     return "\n".join(lines)
 
