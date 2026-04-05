@@ -19,10 +19,7 @@ HELP = """`champsmatch` commands:
   Attach a scoreboard image to parse and review.
 
 - `champsmatch delete`
-  Attach a scoreboard image to delete the matching match from history.
-
-- `champsmatch help`
-  Show this help."""
+  Attach a scoreboard image to delete the matching match from history."""
 
 
 PENDING_MATCHES: dict[int, Match] = {}

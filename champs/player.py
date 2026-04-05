@@ -19,9 +19,6 @@ HELP = """`champsplayer` commands:
   Link a Discord user to a player for voice-based draft detection.
   If no user is provided, links the command caller.
 
-- `champsplayer help`
-  Show this help.
-
 You can also use `champshelp player`."""
 
 

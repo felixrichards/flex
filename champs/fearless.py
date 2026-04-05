@@ -36,10 +36,7 @@ HELP = """`champsfearless` commands:
   Remove one or more champions from bans.
 
 - `champsfearless override <champion[, champion...]>`
-  Replace the full ban list (empty argument clears all bans).
-
-- `champsfearless help`
-  Show this help."""
+  Replace the full ban list (empty argument clears all bans)."""
 
 
 def _utc_now() -> datetime:

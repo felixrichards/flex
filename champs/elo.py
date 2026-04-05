@@ -6,10 +6,7 @@ HELP = """`champselo` usage:
   Show full ELO table.
 
 - `champselo <player_or_username ...>`
-  Show filtered rows for specific players/usernames.
-
-- `champselo help`
-  Show this help."""
+  Show filtered rows for specific players/usernames."""
 
 
 def _format_elo_table(rows) -> str:
