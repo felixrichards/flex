@@ -9,12 +9,13 @@ from champs.draft import handle_draft
 from champs.elo import handle_elo
 from champs.fearless import handle_fearless
 from champs.get import handle_get
+from champs.help import handle_help
 from champs.match import handle_match, handle_on_message
 from champs.player import handle_player
 
 load_dotenv()
 
-bot = commands.Bot(command_prefix="champs", intents=discord.Intents.all())
+bot = commands.Bot(command_prefix="champs", intents=discord.Intents.all(), help_command=None)
 DB_PATH = os.getenv("CHAMPS_DB_PATH", "/app/data/champs.db")
 
 
@@ -61,6 +62,13 @@ async def draft(ctx, *args):
 @bot.command()
 async def fearless(ctx, *args):
     await handle_fearless(ctx, args)
+
+
+# `champshelp [command]`
+# Shows clear command help and per-command detailed help.
+@bot.command(name="help")
+async def help_command(ctx, *args):
+    await handle_help(ctx, args)
 
 
 # Handles replies to bot match messages for JSON correction updates,

@@ -6,13 +6,8 @@ from typing import List, Tuple
 import discord
 
 from champs import fearless
+from champs.help import GET_HELP, GET_USAGE_BODY
 from champs.random_champs import filters, random_champ_weighted, secret
-
-
-USAGE = """After the command, write the desired number of champs to get a random selection of champs even across roles.
-If no number is given, 40 are returned.
-You can also add filters, e.g. role, class. For example: champsget 3 assassin jungle.
-"""
 
 
 RANDOM_WYNS = [
@@ -105,10 +100,14 @@ def parse_get_args(args) -> Tuple[int, List[str], Special | None, List[str]]:
 
 
 async def handle_get(ctx, args) -> None:
+    if args and args[0].lower() in {"help", "--help", "-h"}:
+        await ctx.send(GET_HELP)
+        return
+
     try:
         count, filter_strs, special, unrecognised_arguments = parse_get_args(args)
     except BotArgsError as exc:
-        await ctx.send(f"{str(exc)}\n\n{USAGE}")
+        await ctx.send(f"{str(exc)}\n\n{GET_USAGE_BODY}")
         return
 
     if special is Special.WYN:

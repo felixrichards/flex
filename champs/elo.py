@@ -1,4 +1,5 @@
 from champs.db import db
+from champs.help import ELO_HELP
 
 
 def _format_elo_table(rows) -> str:
@@ -34,5 +35,8 @@ def _format_elo_table(rows) -> str:
 
 
 async def handle_elo(ctx, args, db_path: str) -> None:
+    if args and args[0].lower() in {"help", "--help", "-h"}:
+        await ctx.send(ELO_HELP)
+        return
     rows = db.get_elo_rows(db_path, list(args) if args else None)
     await ctx.send(_format_elo_table(rows))
