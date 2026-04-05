@@ -2,7 +2,27 @@ import asyncio
 import re
 
 from champs.db import db
-from champs.help import PLAYER_HELP
+
+HELP = """`champsplayer` commands:
+
+- `champsplayer add <username> <name> [primary_role] [secondary_role]`
+  Add a username -> name mapping, optionally scoped by roles.
+  Example: `champsplayer add MaBalls Felix adc top`
+
+- `champsplayer delete <username> <name>`
+  Delete username -> name mapping rows for that pair.
+
+- `champsplayer view <player_or_username ...>`
+  Show role mappings table (name, usernames, roles, linked Discord IDs) for specified players.
+
+- `champsplayer linkdiscord <player_or_username> [@discord_user_or_id]`
+  Link a Discord user to a player for voice-based draft detection.
+  If no user is provided, links the command caller.
+
+- `champsplayer help`
+  Show this help.
+
+You can also use `champshelp player`."""
 
 
 def _format_player_mapping_table(rows) -> str:
@@ -41,7 +61,7 @@ def _format_player_mapping_table(rows) -> str:
 
 
 async def _handle_player_help(ctx) -> None:
-    await ctx.send(PLAYER_HELP)
+    await ctx.send(HELP)
 
 
 async def _handle_player_add(ctx, args, db_path: str) -> None:

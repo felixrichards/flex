@@ -9,10 +9,20 @@ import discord
 from champs.common.json_payload import extract_json_payload
 from champs.db import db
 from champs.discord_views import ParseFeedbackView
-from champs.help import MATCH_HELP
 from champs import fearless
 from champs.payloads.match import Match
 from champs.scoreboard import scoreboard_cv
+
+HELP = """`champsmatch` commands:
+
+- `champsmatch`
+  Attach a scoreboard image to parse and review.
+
+- `champsmatch delete`
+  Attach a scoreboard image to delete the matching match from history.
+
+- `champsmatch help`
+  Show this help."""
 
 
 PENDING_MATCHES: dict[int, Match] = {}
@@ -118,7 +128,7 @@ async def _read_attachment_to_display_match(ctx, db_path: str) -> Match | None:
 
 
 async def _handle_match_help(ctx) -> None:
-    await ctx.send(MATCH_HELP)
+    await ctx.send(HELP)
 
 
 async def _handle_match_delete(ctx, db_path: str) -> None:
