@@ -149,6 +149,10 @@ def record_match_champions(channel_id: int, champions: list[str], *, now: dateti
     except Exception as exc:
         return False, f"Fearless was enabled, but bans were not updated: {exc}"
 
+    # Start the 6-hour window from the first recorded game in a session.
+    if state.start is None:
+        state.start = now
+
     state.matches.append(match)
     for champ in match.champs:
         if champ not in state.banned:
@@ -199,8 +203,6 @@ async def handle_fearless(ctx, args) -> None:
         assert state is not None
         already_enabled = state.enabled
         state.enabled = True
-        if state.start is None:
-            state.start = _utc_now()
         if already_enabled:
             await ctx.send(f"Fearless is already enabled.\n{_status_text(channel_id)}")
         else:
@@ -219,7 +221,7 @@ async def handle_fearless(ctx, args) -> None:
         assert state is not None
         state.banned.clear()
         state.matches.clear()
-        state.start = _utc_now()
+        state.start = None
         await ctx.send("Fearless state reset for this channel.")
         return
 
