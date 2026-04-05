@@ -114,5 +114,5 @@ def test_get_fearless_bans_rolls_over_after_six_hours() -> None:
     assert bans == []
     state = fearless.FEARLESS_BY_CHANNEL[channel_id]
     assert state.enabled is True
-    assert state.start == now
+    assert state.start is None
     assert state.matches == []

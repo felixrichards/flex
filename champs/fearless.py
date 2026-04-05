@@ -101,7 +101,8 @@ def _apply_rollover(state: FearlessState, now: datetime) -> bool:
         return False
     if now - state.start < FEARLESS_WINDOW:
         return False
-    state.start = now
+    # Keep mode enabled but wait for the next recorded game to start a new window.
+    state.start = None
     state.banned.clear()
     state.matches.clear()
     return True
