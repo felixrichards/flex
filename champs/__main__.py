@@ -15,7 +15,7 @@ from champs.player import handle_player
 
 load_dotenv()
 
-bot = commands.Bot(command_prefix="champs", intents=discord.Intents.all(), help_command=None)
+bot = commands.Bot(command_prefix=["champs", "Champs"], intents=discord.Intents.all(), help_command=None)
 DB_PATH = os.getenv("CHAMPS_DB_PATH", "/app/data/champs.db")
 
 
