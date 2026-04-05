@@ -4,6 +4,7 @@ import re
 from datetime import datetime, timedelta, timezone
 
 from champs.common.utils import get_all_champs
+from champs.help import FEARLESS_HELP
 from champs.payloads.fearless import FearlessMatch, FearlessState
 
 FEARLESS_WINDOW = timedelta(hours=6)
@@ -12,35 +13,7 @@ ALL_CHAMPS = get_all_champs()
 CHAMP_LOOKUP = {re.sub(r"[^a-z0-9]", "", champ.lower()): champ for champ in ALL_CHAMPS}
 
 FEARLESS_BY_CHANNEL: dict[int, FearlessState] = {}
-
-USAGE = """`champsfearless` commands:
-
-- `champsfearless enable`
-  Enable fearless tracking in this channel.
-
-- `champsfearless disable`
-  Disable fearless tracking in this channel.
-
-- `champsfearless reset`
-  Clear match history and bans for this channel.
-
-- `champsfearless status`
-  Show current fearless state for this channel.
-
-- `champsfearless list`
-  Show all currently banned champions.
-
-- `champsfearless add <champion[, champion...]>`
-  Manually add one or more champions to bans.
-
-- `champsfearless remove <champion[, champion...]>`
-  Remove one or more champions from bans.
-
-- `champsfearless override <champion[, champion...]>`
-  Replace the full ban list (empty argument clears all bans).
-
-- `champsfearless help`
-  Show this help."""
+USAGE = FEARLESS_HELP
 
 
 def _utc_now() -> datetime:
