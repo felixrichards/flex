@@ -3,7 +3,7 @@ import os
 
 from dataclasses import dataclass
 
-from sqlalchemy import create_engine, delete, select, text
+from sqlalchemy import create_engine, delete, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -48,6 +48,16 @@ class PlayerMappingOverviewRow:
     primary_role: str | None
     secondary_role: str | None
     discord_user_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class PlayerDeleteResult:
+    deleted_player_rows: int
+    deleted_mapping_rows: int
+    deleted_discord_rows: int
+    associated_matches: int
+    associated_match_rows: int
+    deleted_name_variants: tuple[str, ...]
 
 
 def _engine(db_path: str):
@@ -143,10 +153,22 @@ def set_player_mapping(
 
     engine = _engine(db_path)
     with Session(engine) as session:
+        canonical_player_name = session.scalar(
+            select(PlayerRecord.name)
+            .where(func.lower(PlayerRecord.name) == normalized_name.casefold())
+            .order_by(PlayerRecord.name.asc())
+        )
+        canonical_mapping_name = session.scalar(
+            select(PlayerMappingRecord.name)
+            .where(func.lower(PlayerMappingRecord.name) == normalized_name.casefold())
+            .order_by(PlayerMappingRecord.id.desc())
+        )
+        canonical_name = canonical_player_name or canonical_mapping_name or normalized_name
+
         default_mapping = session.scalar(
             select(PlayerMappingRecord).where(
                 PlayerMappingRecord.username == normalized_username,
-                PlayerMappingRecord.name == normalized_name,
+                PlayerMappingRecord.name == canonical_name,
                 PlayerMappingRecord.preferred_role.is_(None),
                 PlayerMappingRecord.secondary_role.is_(None),
             )
@@ -155,7 +177,7 @@ def set_player_mapping(
             session.add(
                 PlayerMappingRecord(
                     username=normalized_username,
-                    name=normalized_name,
+                    name=canonical_name,
                     preferred_role=None,
                     secondary_role=None,
                 )
@@ -166,7 +188,7 @@ def set_player_mapping(
             # Clear any previous role assignment rows for this name, then store one fresh rule.
             role_rows_for_name = session.scalars(
                 select(PlayerMappingRecord).where(
-                    PlayerMappingRecord.name == normalized_name,
+                    func.lower(PlayerMappingRecord.name) == canonical_name.casefold(),
                     PlayerMappingRecord.preferred_role.is_not(None),
                 )
             ).all()
@@ -177,7 +199,7 @@ def set_player_mapping(
             session.add(
                 PlayerMappingRecord(
                     username=normalized_username,
-                    name=normalized_name,
+                    name=canonical_name,
                     preferred_role=normalized_role,
                     secondary_role=normalized_secondary_role,
                 )
@@ -281,6 +303,69 @@ def delete_player_mapping(db_path: str, username: str, name: str) -> int:
             session.delete(row)
         session.commit()
         return len(rows)
+
+
+def delete_player_completely(db_path: str, name: str) -> PlayerDeleteResult:
+    normalized_name = name.strip()
+    if not normalized_name:
+        raise ValueError("Name must be non-empty.")
+
+    target_casefold = normalized_name.casefold()
+    engine = _engine(db_path)
+    with Session(engine) as session:
+        mapping_rows = session.scalars(select(PlayerMappingRecord)).all()
+        player_rows = session.scalars(select(PlayerRecord)).all()
+        match_rows = session.scalars(select(MatchPlayerRecord)).all()
+        discord_rows = session.scalars(select(DiscordPlayerMappingRecord)).all()
+
+        target_mapping_rows = [row for row in mapping_rows if row.name.casefold() == target_casefold]
+        target_usernames_casefold = {row.username.casefold() for row in target_mapping_rows}
+
+        target_name_variants = {row.name for row in target_mapping_rows}
+        target_name_variants.update(row.name for row in player_rows if row.name.casefold() == target_casefold)
+        target_name_variants.update(row.player_name for row in match_rows if row.player_name.casefold() == target_casefold)
+        target_name_variants_casefold = {value.casefold() for value in target_name_variants}
+        if not target_name_variants_casefold:
+            target_name_variants_casefold.add(target_casefold)
+
+        target_match_rows = [row for row in match_rows if row.player_name.casefold() in target_name_variants_casefold]
+        target_match_checksums = {row.match_checksum for row in target_match_rows}
+        if target_match_rows:
+            return PlayerDeleteResult(
+                deleted_player_rows=0,
+                deleted_mapping_rows=0,
+                deleted_discord_rows=0,
+                associated_matches=len(target_match_checksums),
+                associated_match_rows=len(target_match_rows),
+                deleted_name_variants=tuple(sorted(target_name_variants, key=str.casefold)),
+            )
+
+        deleted_mapping_rows = 0
+        for row in target_mapping_rows:
+            session.delete(row)
+            deleted_mapping_rows += 1
+
+        deleted_discord_rows = 0
+        for row in discord_rows:
+            identifier = row.player_username.casefold()
+            if identifier in target_name_variants_casefold or identifier in target_usernames_casefold:
+                session.delete(row)
+                deleted_discord_rows += 1
+
+        deleted_player_rows = sum(1 for row in player_rows if row.name.casefold() in target_name_variants_casefold)
+        for row in player_rows:
+            if row.name.casefold() in target_name_variants_casefold:
+                session.delete(row)
+
+        session.commit()
+        return PlayerDeleteResult(
+            deleted_player_rows=deleted_player_rows,
+            deleted_mapping_rows=deleted_mapping_rows,
+            deleted_discord_rows=deleted_discord_rows,
+            associated_matches=0,
+            associated_match_rows=0,
+            deleted_name_variants=tuple(sorted(target_name_variants, key=str.casefold)),
+        )
 
 
 def get_discord_player_mappings(db_path: str, discord_user_ids: list[int] | list[str] | None = None) -> dict[str, str]:

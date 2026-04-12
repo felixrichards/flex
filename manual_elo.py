@@ -239,6 +239,7 @@ def _should_print_ratings(args) -> bool:
         or args.reset_history
         or args.soft_reset
         or args.set_mapping
+        or args.delete_player
         or args.set_preferred_role
     )
 
@@ -267,6 +268,13 @@ def main() -> None:
         action="append",
         metavar=("PLAYER", "ROLE"),
         help="Set preferred role for a username using their latest mapped name.",
+    )
+    parser.add_argument(
+        "--delete-player",
+        nargs=1,
+        action="append",
+        metavar=("NAME",),
+        help="Delete a player by real name (case-insensitive) only when they have zero matches; removes mappings, Discord links, and player row.",
     )
     parser.add_argument(
         "--recalculate",
@@ -309,12 +317,13 @@ def main() -> None:
         and not args.reset_history
         and not args.soft_reset
         and not args.set_mapping
+        and not args.delete_player
         and not args.set_preferred_role
         and not args.show_player_mappings
     ):
         raise ValueError(
             "Provide --input-file, --players-file, --recalculate, --set-mapping, "
-            "--set-preferred-role, --reset-history, --soft-reset, --show-player-mappings, or a combination."
+            "--delete-player, --set-preferred-role, --reset-history, --soft-reset, --show-player-mappings, or a combination."
         )
 
     db.init_db(args.db_path)
@@ -341,6 +350,30 @@ def main() -> None:
         for username, role in args.set_preferred_role:
             db.set_player_preferred_role(args.db_path, username, role)
             print(f"Set preferred role: {username} -> {role.upper()}")
+
+    if args.delete_player:
+        for values in args.delete_player:
+            player_name = values[0]
+            result = db.delete_player_completely(args.db_path, player_name)
+            names = ", ".join(result.deleted_name_variants) if result.deleted_name_variants else player_name
+            if result.associated_matches > 0 or result.associated_match_rows > 0:
+                print(
+                    f"Cannot delete player {names}: has {result.associated_match_rows} match row(s) "
+                    f"across {result.associated_matches} match(es)."
+                )
+                continue
+            if (
+                result.deleted_player_rows == 0
+                and result.deleted_mapping_rows == 0
+                and result.deleted_discord_rows == 0
+            ):
+                print(f"No player found for: {player_name}")
+                continue
+            print(
+                f"Deleted player {names}: "
+                f"players={result.deleted_player_rows}, mappings={result.deleted_mapping_rows}, "
+                f"discord_links={result.deleted_discord_rows}"
+            )
 
     if args.reset_history or args.soft_reset:
         backup_path = _backup_db_file(args.db_path)

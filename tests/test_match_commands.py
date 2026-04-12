@@ -32,6 +32,64 @@ def test_handle_player_add_preserves_primary_secondary_order(monkeypatch) -> Non
     assert ctx.messages == ["Saved mapping: `MaBalls` -> `Felix` for roles `adc`/`top`"]
 
 
+def test_handle_player_delete_requires_name() -> None:
+    ctx = _FakeCtx()
+    asyncio.run(player._handle_player_delete(ctx, [], "/tmp/test.db"))
+    assert ctx.messages == ["Usage: `champsplayer delete <name>`"]
+
+
+def test_handle_player_delete_calls_full_delete(monkeypatch) -> None:
+    async def _fake_to_thread(func, *args, **kwargs):
+        return func(*args, **kwargs)
+
+    def _fake_delete_player(_db_path, name):
+        assert _db_path == "/tmp/test.db"
+        assert name == "felix"
+        return player.db.PlayerDeleteResult(
+            deleted_player_rows=1,
+            deleted_mapping_rows=2,
+            deleted_discord_rows=1,
+            associated_matches=0,
+            associated_match_rows=0,
+            deleted_name_variants=("Felix",),
+        )
+
+    monkeypatch.setattr(player.asyncio, "to_thread", _fake_to_thread)
+    monkeypatch.setattr(player.db, "delete_player_completely", _fake_delete_player)
+
+    ctx = _FakeCtx()
+    asyncio.run(player._handle_player_delete(ctx, ["felix"], "/tmp/test.db"))
+
+    assert len(ctx.messages) == 1
+    assert "Deleted player `Felix`." in ctx.messages[0]
+
+
+def test_handle_player_delete_blocks_when_match_history_exists(monkeypatch) -> None:
+    async def _fake_to_thread(func, *args, **kwargs):
+        return func(*args, **kwargs)
+
+    def _fake_delete_player(_db_path, name):
+        assert _db_path == "/tmp/test.db"
+        assert name == "felix"
+        return player.db.PlayerDeleteResult(
+            deleted_player_rows=0,
+            deleted_mapping_rows=0,
+            deleted_discord_rows=0,
+            associated_matches=2,
+            associated_match_rows=12,
+            deleted_name_variants=("Felix",),
+        )
+
+    monkeypatch.setattr(player.asyncio, "to_thread", _fake_to_thread)
+    monkeypatch.setattr(player.db, "delete_player_completely", _fake_delete_player)
+
+    ctx = _FakeCtx()
+    asyncio.run(player._handle_player_delete(ctx, ["felix"], "/tmp/test.db"))
+
+    assert len(ctx.messages) == 1
+    assert "Cannot delete `Felix` because they have recorded match history" in ctx.messages[0]
+
+
 class _FakeLinkCtx:
     def __init__(self, author_id: int = 1234, mentions=None) -> None:
         self.messages: list[str] = []

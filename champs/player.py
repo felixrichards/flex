@@ -9,8 +9,8 @@ HELP = """`champsplayer` commands:
   Add a username -> name mapping, optionally scoped by roles.
   Example: `champsplayer add MaBalls Felix adc top`
 
-- `champsplayer delete <username> <name>`
-  Delete username -> name mapping rows for that pair.
+- `champsplayer delete <name>`
+  Delete a player from DB only if they have zero matches (removes mappings, Discord links, and player row).
 
 - `champsplayer view <player_or_username ...>`
   Show role mappings table (name, usernames, roles, linked Discord IDs) for specified players.
@@ -101,26 +101,39 @@ async def _handle_player_add(ctx, args, db_path: str) -> None:
 
 
 async def _handle_player_delete(ctx, args, db_path: str) -> None:
-    if len(args) < 2:
-        await ctx.send("Usage: `champsplayer delete <username> <name>`")
-        return
-
-    username = args[0].strip()
-    name = " ".join(args[1:]).strip()
-    if not username or not name:
-        await ctx.send("Usage: `champsplayer delete <username> <name>`")
+    name = " ".join(args).strip()
+    if not name:
+        await ctx.send("Usage: `champsplayer delete <name>`")
         return
 
     try:
-        deleted = await asyncio.to_thread(db.delete_player_mapping, db_path, username, name)
+        result = await asyncio.to_thread(db.delete_player_completely, db_path, name)
     except Exception as exc:
-        await ctx.send(f"Could not delete player mapping: {exc}")
+        await ctx.send(f"Could not delete player: {exc}")
         return
 
-    if deleted > 0:
-        await ctx.send(f"Deleted {deleted} mapping row(s) for `{username}` -> `{name}`.")
-    else:
-        await ctx.send(f"No mapping rows found for `{username}` -> `{name}`.")
+    if result.associated_matches > 0 or result.associated_match_rows > 0:
+        names = ", ".join(result.deleted_name_variants) if result.deleted_name_variants else name
+        await ctx.send(
+            f"Cannot delete `{names}` because they have recorded match history "
+            f"({result.associated_match_rows} match row(s) across {result.associated_matches} match(es))."
+        )
+        return
+
+    if (
+        result.deleted_player_rows == 0
+        and result.deleted_mapping_rows == 0
+        and result.deleted_discord_rows == 0
+    ):
+        await ctx.send(f"No player found for `{name}`.")
+        return
+
+    names = ", ".join(result.deleted_name_variants) if result.deleted_name_variants else name
+    await ctx.send(
+        f"Deleted player `{names}`. "
+        f"players={result.deleted_player_rows}, mappings={result.deleted_mapping_rows}, "
+        f"discord_links={result.deleted_discord_rows}."
+    )
 
 
 async def _handle_player_view(ctx, args, db_path: str) -> None:

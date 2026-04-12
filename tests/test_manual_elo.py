@@ -139,6 +139,7 @@ def test_should_print_ratings_only_for_rating_relevant_actions() -> None:
             reset_history=False,
             soft_reset=False,
             set_mapping=None,
+            delete_player=None,
             set_preferred_role=None,
             show_player_mappings=False,
         ) -> None:
@@ -148,6 +149,7 @@ def test_should_print_ratings_only_for_rating_relevant_actions() -> None:
             self.reset_history = reset_history
             self.soft_reset = soft_reset
             self.set_mapping = set_mapping
+            self.delete_player = delete_player
             self.set_preferred_role = set_preferred_role
             self.show_player_mappings = show_player_mappings
 
@@ -156,6 +158,7 @@ def test_should_print_ratings_only_for_rating_relevant_actions() -> None:
     assert manual_elo._should_print_ratings(Args(recalculate=True)) is True
     assert manual_elo._should_print_ratings(Args(reset_history=True)) is True
     assert manual_elo._should_print_ratings(Args(soft_reset=True)) is True
+    assert manual_elo._should_print_ratings(Args(delete_player=[["Felix"]])) is True
 
 
 def test_should_print_player_mappings_for_show_flag_or_players_file() -> None:

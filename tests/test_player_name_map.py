@@ -1,5 +1,5 @@
 from champs import db
-from champs.db.models import PlayerMappingRecord
+from champs.db.models import DiscordPlayerMappingRecord, MatchRecord, PlayerMappingRecord, PlayerRecord
 from champs.payloads import Match
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -216,3 +216,116 @@ def test_discord_link_for_actual_name_does_not_bleed_to_same_username_aliases(tm
     assert "Wyn" in by_name and "Sean" in by_name
     assert "999" in set(by_name["Wyn"].discord_user_ids)
     assert "999" not in set(by_name["Sean"].discord_user_ids)
+
+
+def test_set_player_mapping_reuses_existing_name_case_insensitively(tmp_path) -> None:
+    db_path = str(tmp_path / "mapping_name_case_insensitive.db")
+    db.init_db(db_path)
+
+    db.set_player_mapping(db_path, "AliasOne", "Felix")
+    db.set_player_mapping(db_path, "AliasTwo", "felix", "MID", "BOT")
+
+    engine = db._engine(db_path)
+    with Session(engine) as session:
+        rows = session.scalars(
+            select(PlayerMappingRecord).where(PlayerMappingRecord.username.in_(["AliasOne", "AliasTwo"]))
+        ).all()
+
+    assert rows
+    assert all(row.name == "Felix" for row in rows)
+    assert not any(row.name == "felix" for row in rows)
+
+
+def test_delete_player_completely_is_blocked_when_player_has_matches(tmp_path) -> None:
+    db_path = str(tmp_path / "delete_player_completely_blocked.db")
+    db.init_db(db_path)
+
+    db.set_player_mapping(db_path, "FelixMain", "Felix", "MID", "BOT")
+    db.set_player_mapping(db_path, "OtherMain", "Other", "TOP", "JUNGLE")
+    db.set_discord_player_mapping(db_path, 101, "FelixMain")
+    db.set_discord_player_mapping(db_path, 202, "OtherMain")
+
+    first = Match.model_validate(
+        {
+            "win": [
+                {"player": "FelixMain", "champion": "Ahri", "kda": "1/1/1"},
+                {"player": "W2", "champion": "Vi", "kda": "1/1/1"},
+                {"player": "W3", "champion": "Nami", "kda": "1/1/1"},
+                {"player": "W4", "champion": "Annie", "kda": "1/1/1"},
+                {"player": "W5", "champion": "Jinx", "kda": "1/1/1"},
+            ],
+            "lose": [
+                {"player": "L1", "champion": "Zed", "kda": "1/1/1"},
+                {"player": "L2", "champion": "Riven", "kda": "1/1/1"},
+                {"player": "L3", "champion": "Leona", "kda": "1/1/1"},
+                {"player": "L4", "champion": "Trundle", "kda": "1/1/1"},
+                {"player": "L5", "champion": "Caitlyn", "kda": "1/1/1"},
+            ],
+        }
+    )
+    second = Match.model_validate(
+        {
+            "win": [
+                {"player": "OtherMain", "champion": "Ornn", "kda": "1/1/1"},
+                {"player": "OW2", "champion": "Vi", "kda": "1/1/1"},
+                {"player": "OW3", "champion": "Nami", "kda": "1/1/1"},
+                {"player": "OW4", "champion": "Annie", "kda": "1/1/1"},
+                {"player": "OW5", "champion": "Jinx", "kda": "1/1/1"},
+            ],
+            "lose": [
+                {"player": "OL1", "champion": "Zed", "kda": "1/1/1"},
+                {"player": "OL2", "champion": "Riven", "kda": "1/1/1"},
+                {"player": "OL3", "champion": "Leona", "kda": "1/1/1"},
+                {"player": "OL4", "champion": "Trundle", "kda": "1/1/1"},
+                {"player": "OL5", "champion": "Caitlyn", "kda": "1/1/1"},
+            ],
+        }
+    )
+    assert db.insert_match(db_path, first) is True
+    assert db.insert_match(db_path, second) is True
+
+    result = db.delete_player_completely(db_path, "felix")
+    assert result.deleted_player_rows == 0
+    assert result.deleted_mapping_rows == 0
+    assert result.deleted_discord_rows == 0
+    assert result.associated_matches >= 1
+    assert result.associated_match_rows >= 1
+    assert "Felix" in set(result.deleted_name_variants)
+
+    engine = db._engine(db_path)
+    with Session(engine) as session:
+        assert session.scalars(select(PlayerMappingRecord).where(PlayerMappingRecord.name == "Felix")).all()
+        assert session.scalars(select(PlayerRecord).where(PlayerRecord.name == "Felix")).all()
+        assert session.scalars(
+            select(DiscordPlayerMappingRecord).where(DiscordPlayerMappingRecord.player_username == "FelixMain")
+        ).all()
+        matches = session.scalars(select(MatchRecord)).all()
+
+    assert len(matches) == 2
+
+
+def test_delete_player_completely_removes_unmatched_player_data(tmp_path) -> None:
+    db_path = str(tmp_path / "delete_player_completely_unmatched.db")
+    db.init_db(db_path)
+
+    db.set_player_mapping(db_path, "AliasNonsense", "Nonsense")
+    db.set_discord_player_mapping(db_path, 999, "AliasNonsense")
+    manual_player_add = PlayerRecord(name="Nonsense", rating=1000)
+    engine = db._engine(db_path)
+    with Session(engine) as session:
+        session.add(manual_player_add)
+        session.commit()
+
+    result = db.delete_player_completely(db_path, "nonsense")
+    assert result.associated_matches == 0
+    assert result.associated_match_rows == 0
+    assert result.deleted_mapping_rows >= 1
+    assert result.deleted_discord_rows >= 1
+    assert result.deleted_player_rows >= 1
+
+    with Session(engine) as session:
+        assert not session.scalars(select(PlayerRecord).where(PlayerRecord.name == "Nonsense")).all()
+        assert not session.scalars(select(PlayerMappingRecord).where(PlayerMappingRecord.name == "Nonsense")).all()
+        assert not session.scalars(
+            select(DiscordPlayerMappingRecord).where(DiscordPlayerMappingRecord.player_username == "AliasNonsense")
+        ).all()
