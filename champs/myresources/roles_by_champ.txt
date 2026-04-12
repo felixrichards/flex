@@ -160,7 +160,9 @@ Xin Zhao	JUNGLE
 Yasuo	TOP,MID,BOT
 Yone	TOP,MID
 Yorick	TOP
+Yunara	BOT
 Yuumi	SUPP
+Zaahen	TOP,JUNGLE
 Zac	TOP,JUNGLE,SUPP
 Zed	JUNGLE,MID
 Zeri	BOT

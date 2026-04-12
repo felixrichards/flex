@@ -160,7 +160,9 @@ Xin Zhao	AD
 Yasuo	AD
 Yone	AD
 Yorick	AD
+Yunara AD
 Yuumi	AP
+Zaahen AD
 Zac	AP
 Zed	AD
 Zeri	AD

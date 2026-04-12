@@ -160,7 +160,9 @@ Xin Zhao		Yes
 Yasuo	Yes		Yes	Yes		
 Yone	Yes		Yes			
 Yorick	Yes					
+Yunara              Yes 
 Yuumi					Yes	
+Zaahen	Yes	Yes			    
 Zac	3P	Yes			3P	
 Zed		3P	Yes			
 Zeri				Yes		
