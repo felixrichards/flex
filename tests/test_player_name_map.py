@@ -329,3 +329,56 @@ def test_delete_player_completely_removes_unmatched_player_data(tmp_path) -> Non
         assert not session.scalars(
             select(DiscordPlayerMappingRecord).where(DiscordPlayerMappingRecord.player_username == "AliasNonsense")
         ).all()
+
+
+def test_delete_player_exact_case_variant_without_matches_when_other_variant_has_matches(tmp_path) -> None:
+    db_path = str(tmp_path / "delete_player_exact_case_variant.db")
+    db.init_db(db_path)
+
+    # Canonical player with match history.
+    db.set_player_mapping(db_path, "FelixMain", "Felix", "MID", "BOT")
+    match = Match.model_validate(
+        {
+            "win": [
+                {"player": "FelixMain", "champion": "Ahri", "kda": "1/1/1"},
+                {"player": "W2", "champion": "Vi", "kda": "1/1/1"},
+                {"player": "W3", "champion": "Nami", "kda": "1/1/1"},
+                {"player": "W4", "champion": "Annie", "kda": "1/1/1"},
+                {"player": "W5", "champion": "Jinx", "kda": "1/1/1"},
+            ],
+            "lose": [
+                {"player": "L1", "champion": "Zed", "kda": "1/1/1"},
+                {"player": "L2", "champion": "Riven", "kda": "1/1/1"},
+                {"player": "L3", "champion": "Leona", "kda": "1/1/1"},
+                {"player": "L4", "champion": "Trundle", "kda": "1/1/1"},
+                {"player": "L5", "champion": "Caitlyn", "kda": "1/1/1"},
+            ],
+        }
+    )
+    assert db.insert_match(db_path, match) is True
+
+    # Legacy bad-case duplicate with no matches.
+    engine = db._engine(db_path)
+    with Session(engine) as session:
+        session.add(PlayerMappingRecord(username="felixAlias", name="felix", preferred_role=None, secondary_role=None))
+        session.add(PlayerRecord(name="felix", rating=1000))
+        session.add(DiscordPlayerMappingRecord(discord_user_id="777", player_username="felixAlias"))
+        session.commit()
+
+    result = db.delete_player_completely(db_path, "felix")
+    assert result.associated_matches == 0
+    assert result.associated_match_rows == 0
+    assert result.deleted_mapping_rows >= 1
+    assert result.deleted_player_rows >= 1
+    assert result.deleted_discord_rows >= 1
+    assert "felix" in set(result.deleted_name_variants)
+
+    with Session(engine) as session:
+        assert not session.scalars(select(PlayerRecord).where(PlayerRecord.name == "felix")).all()
+        assert session.scalars(select(PlayerRecord).where(PlayerRecord.name == "Felix")).all()
+        assert not session.scalars(select(PlayerMappingRecord).where(PlayerMappingRecord.name == "felix")).all()
+        assert session.scalars(select(PlayerMappingRecord).where(PlayerMappingRecord.name == "Felix")).all()
+        assert not session.scalars(
+            select(DiscordPlayerMappingRecord).where(DiscordPlayerMappingRecord.player_username == "felixAlias")
+        ).all()
+        assert session.scalars(select(MatchRecord)).all()

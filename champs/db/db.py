@@ -318,6 +318,57 @@ def delete_player_completely(db_path: str, name: str) -> PlayerDeleteResult:
         match_rows = session.scalars(select(MatchPlayerRecord)).all()
         discord_rows = session.scalars(select(DiscordPlayerMappingRecord)).all()
 
+        # Exact-case deletion first, so legacy bad-case duplicates can be cleaned up
+        # without being blocked by another case variant that has match history.
+        exact_name_exists = any(row.name == normalized_name for row in mapping_rows) or any(
+            row.name == normalized_name for row in player_rows
+        )
+        if exact_name_exists:
+            target_mapping_rows = [row for row in mapping_rows if row.name == normalized_name]
+            target_name_variants = {normalized_name}
+            target_match_rows = [row for row in match_rows if row.player_name == normalized_name]
+            target_match_checksums = {row.match_checksum for row in target_match_rows}
+            if target_match_rows:
+                return PlayerDeleteResult(
+                    deleted_player_rows=0,
+                    deleted_mapping_rows=0,
+                    deleted_discord_rows=0,
+                    associated_matches=len(target_match_checksums),
+                    associated_match_rows=len(target_match_rows),
+                    deleted_name_variants=tuple(sorted(target_name_variants, key=str.casefold)),
+                )
+
+            deleted_mapping_rows = 0
+            for row in target_mapping_rows:
+                session.delete(row)
+                deleted_mapping_rows += 1
+
+            deleted_player_rows = 0
+            for row in player_rows:
+                if row.name == normalized_name:
+                    session.delete(row)
+                    deleted_player_rows += 1
+
+            target_usernames = {row.username for row in target_mapping_rows}
+            surviving_usernames = {row.username for row in mapping_rows if row.name != normalized_name}
+            removable_usernames = target_usernames - surviving_usernames
+
+            deleted_discord_rows = 0
+            for row in discord_rows:
+                if row.player_username == normalized_name or row.player_username in removable_usernames:
+                    session.delete(row)
+                    deleted_discord_rows += 1
+
+            session.commit()
+            return PlayerDeleteResult(
+                deleted_player_rows=deleted_player_rows,
+                deleted_mapping_rows=deleted_mapping_rows,
+                deleted_discord_rows=deleted_discord_rows,
+                associated_matches=0,
+                associated_match_rows=0,
+                deleted_name_variants=tuple(sorted(target_name_variants, key=str.casefold)),
+            )
+
         target_mapping_rows = [row for row in mapping_rows if row.name.casefold() == target_casefold]
         target_usernames_casefold = {row.username.casefold() for row in target_mapping_rows}
 
