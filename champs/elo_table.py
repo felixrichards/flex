@@ -15,7 +15,7 @@ def format_elo_rows(
         return "No matching players found."
 
     rank_header = "#" if short_headers else "Rank"
-    player_header = "P" if short_headers else "Player"
+    player_header = "Player"
     cp_header = "CP"
     elo_header = "E" if short_headers else "ELO"
     wins_header = "W" if short_headers else "Wins"

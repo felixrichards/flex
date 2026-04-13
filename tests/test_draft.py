@@ -358,6 +358,36 @@ def test_handle_draft_rejects_with_remaining_cooldown(tmp_path) -> None:
     assert any("Draft cooldown active in this channel." in message for message in ctx.messages)
 
 
+def test_handle_draft_allows_admin_override_of_cooldown(tmp_path) -> None:
+    db_path = str(tmp_path / "draft_cooldown_admin_override.db")
+    db.init_db(db_path)
+
+    role_cycle = [
+        ("TOP", "JUNGLE"),
+        ("JUNGLE", "TOP"),
+        ("MID", "BOT"),
+        ("BOT", "SUPP"),
+        ("SUPP", "MID"),
+    ]
+    players = []
+    for idx in range(1, 11):
+        username = f"U{idx}"
+        name = f"P{idx}"
+        primary, secondary = role_cycle[(idx - 1) % len(role_cycle)]
+        db.set_player_mapping(db_path, username, name, primary, secondary)
+        db.set_discord_player_mapping(db_path, 8000 + idx, name)
+        players.append(username)
+
+    db.set_player_privilege(db_path, "P1", 2)
+    ctx = _FakeCtx(channel_id=10, author_id=8001)
+    asyncio.run(handle_draft(ctx, tuple(players), db_path))
+    asyncio.run(handle_draft(ctx, tuple(players), db_path))
+
+    assert len(ctx.messages) == 2
+    assert all("Dodge window:" in message for message in ctx.messages)
+    assert not any("Draft cooldown active in this channel." in message for message in ctx.messages)
+
+
 def test_handle_dodge_accepts_linked_player_in_active_draft(tmp_path) -> None:
     db_path = str(tmp_path / "draft_dodge_submit.db")
     db.init_db(db_path)

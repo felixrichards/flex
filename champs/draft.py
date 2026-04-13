@@ -7,7 +7,13 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from champs.constants import DODGE_MAX_NO_PENALTY, DODGE_PENALTY, DODGE_WINDOW_SECONDS, DRAFT_WINDOW_SECONDS
+from champs.constants import (
+    DODGE_MAX_NO_PENALTY,
+    DODGE_PENALTY,
+    DODGE_WINDOW_SECONDS,
+    DRAFT_WINDOW_SECONDS,
+    Privilege,
+)
 from champs.db import db
 from champs.db.models import PlayerMappingRecord, PlayerRecord
 
@@ -552,6 +558,15 @@ async def _open_dodge_window(channel_id: int, ctx, db_path: str, players: list[D
     state.window_end_task = asyncio.create_task(_runner())
 
 
+def _clear_channel_draft_state(channel_id: int) -> None:
+    state = DRAFT_STATE_BY_CHANNEL.get(channel_id)
+    if state is None:
+        return
+    if state.window_end_task is not None and not state.window_end_task.done():
+        state.window_end_task.cancel()
+    DRAFT_STATE_BY_CHANNEL.pop(channel_id, None)
+
+
 async def _post_new_draft(ctx, db_path: str, *, players: list[DraftPlayer], prefix_message: str | None = None) -> None:
     channel_id = getattr(getattr(ctx, "channel", None), "id", 0)
     try:
@@ -574,12 +589,15 @@ async def handle_draft(ctx, args, db_path: str) -> None:
     if state is not None:
         elapsed = now - state.created_at
         if elapsed < timedelta(seconds=DRAFT_WINDOW_SECONDS):
-            remaining = int((timedelta(seconds=DRAFT_WINDOW_SECONDS) - elapsed).total_seconds())
-            await ctx.send(
-                "Draft cooldown active in this channel. "
-                f"Please wait `{_format_seconds(remaining)}` before requesting another draft."
-            )
-            return
+            caller_privilege = db.get_discord_user_privilege(db_path, ctx.author.id)
+            if caller_privilege < int(Privilege.ADMIN):
+                remaining = int((timedelta(seconds=DRAFT_WINDOW_SECONDS) - elapsed).total_seconds())
+                await ctx.send(
+                    "Draft cooldown active in this channel. "
+                    f"Please wait `{_format_seconds(remaining)}` before requesting another draft."
+                )
+                return
+            _clear_channel_draft_state(channel_id)
 
     players, result_message = _resolve_draft_players(ctx, args, db_path)
     if players is None:
