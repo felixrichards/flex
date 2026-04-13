@@ -22,6 +22,7 @@ from .db import (
     set_player_privilege,
     set_discord_player_mapping,
     set_player_mapping,
+    toggle_player_private,
     set_player_preferred_role,
     undo_recent_dodge_penalties,
 )
@@ -43,6 +44,7 @@ __all__ = [
     "undo_recent_dodge_penalties",
     "dodge_scale_for_player",
     "set_player_mapping",
+    "toggle_player_private",
     "set_player_preferred_role",
     "set_player_privilege",
     "set_discord_player_mapping",

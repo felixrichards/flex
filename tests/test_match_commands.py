@@ -187,6 +187,25 @@ def test_handle_player_admin_requires_superadmin(monkeypatch) -> None:
     assert ctx.messages == ["Only superadmins can grant admin privilege."]
 
 
+def test_handle_player_private_requires_identifier() -> None:
+    ctx = _FakeLinkCtx(author_id=1111)
+    asyncio.run(player._handle_player_private(ctx, [], "/tmp/test.db"))
+    assert ctx.messages == ["Usage: `champsplayer private <caseinsensitive_player_or_casesensitive_username>`"]
+
+
+def test_handle_player_private_toggles_and_reports_state(monkeypatch) -> None:
+    async def _fake_to_thread(func, *args, **kwargs):
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr(player.asyncio, "to_thread", _fake_to_thread)
+    monkeypatch.setattr(player.db, "toggle_player_private", lambda *_args, **_kwargs: ("Felix", True))
+
+    ctx = _FakeLinkCtx(author_id=1111)
+    asyncio.run(player._handle_player_private(ctx, ["Felix"], "/tmp/test.db"))
+
+    assert ctx.messages == ["`Felix` is now `hidden` in unfiltered `champselo` output."]
+
+
 def test_handle_on_message_corrected_payload_is_saved(monkeypatch) -> None:
     class _FakeDiscordMessage:
         def __init__(self, message_id: int, author, content: str = "") -> None:

@@ -138,6 +138,9 @@ def _ensure_schema_upgrades(engine) -> None:
             if "privilege" not in player_columns:
                 conn.execute(text("ALTER TABLE players ADD COLUMN privilege INTEGER DEFAULT 0"))
                 conn.execute(text("UPDATE players SET privilege = 0 WHERE privilege IS NULL"))
+            if "private" not in player_columns:
+                conn.execute(text("ALTER TABLE players ADD COLUMN private INTEGER DEFAULT 0"))
+                conn.execute(text("UPDATE players SET private = 0 WHERE private IS NULL"))
 
         dodge_penalty_info = conn.execute(text("PRAGMA table_info(player_dodge_penalties)")).all()
         if not dodge_penalty_info:
@@ -674,7 +677,7 @@ def _expected_score(rating_a: float, rating_b: float) -> float:
 def _recalculate_ratings(session: Session, reset_players: bool = False) -> None:
     players = session.scalars(select(PlayerRecord)).all()
     preserved_metadata = {
-        player.name: (int(player.custom_points), int(player.dodges), int(player.privilege))
+        player.name: (int(player.custom_points), int(player.dodges), int(player.privilege), int(player.private))
         for player in players
     }
     if reset_players:
@@ -725,9 +728,9 @@ def _recalculate_ratings(session: Session, reset_players: bool = False) -> None:
             existing_players[name].custom_points = rounded - applied_penalties
             existing_players[name].dodges = dodge_count
         else:
-            _cp, _dodges, privilege = preserved_metadata.get(
+            _cp, _dodges, privilege, is_private = preserved_metadata.get(
                 name,
-                (rounded, 0, int(Privilege.PLAYER)),
+                (rounded, 0, int(Privilege.PLAYER), 0),
             )
             session.add(
                 PlayerRecord(
@@ -736,6 +739,7 @@ def _recalculate_ratings(session: Session, reset_players: bool = False) -> None:
                     custom_points=rounded - applied_penalties,
                     dodges=dodge_count,
                     privilege=privilege,
+                    private=is_private,
                 )
             )
 
@@ -784,6 +788,7 @@ def _ensure_player(session: Session, name: str) -> PlayerRecord:
             custom_points=INITIAL_RATING,
             dodges=0,
             privilege=int(Privilege.PLAYER),
+            private=0,
         )
         session.add(player)
         session.flush()
@@ -1033,12 +1038,37 @@ def set_player_privilege(db_path: str, identifier: str, privilege: int) -> str:
                 custom_points=INITIAL_RATING,
                 dodges=0,
                 privilege=normalized_privilege,
+                private=0,
             )
             session.add(player)
         else:
             player.privilege = normalized_privilege
         session.commit()
         return resolved_name
+
+
+def toggle_player_private(db_path: str, identifier: str) -> tuple[str, bool]:
+    engine = _engine(db_path)
+    with Session(engine) as session:
+        resolved_name = resolve_player_identifier_for_link_with_session(session, identifier)
+        if resolved_name is None:
+            raise ValueError(f"Unknown player: {identifier}")
+
+        player = session.get(PlayerRecord, resolved_name)
+        if player is None:
+            player = PlayerRecord(
+                name=resolved_name,
+                rating=INITIAL_RATING,
+                custom_points=INITIAL_RATING,
+                dodges=0,
+                privilege=int(Privilege.PLAYER),
+                private=1,
+            )
+            session.add(player)
+        else:
+            player.private = 0 if int(player.private or 0) else 1
+        session.commit()
+        return resolved_name, bool(player.private)
 
 
 def get_discord_linked_player_name(db_path: str, discord_user_id: int | str) -> str | None:
@@ -1117,6 +1147,8 @@ def get_elo_rows(db_path: str, identifiers: list[str] | None = None) -> list[Elo
     games_by_player = _count_games_by_player(match_rows)
     for idx, player in enumerate(ordered_players, start=1):
         if filtered_names is not None and player.name not in filtered_names:
+            continue
+        if filtered_names is None and int(player.private or 0):
             continue
         wins, losses = records_by_player.get(player.name, (0, 0))
         games = games_by_player.get(player.name, 0)

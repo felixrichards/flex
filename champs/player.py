@@ -24,6 +24,9 @@ HELP = """`champsplayer` commands:
   Set player privilege to admin (`2`).
   Only callable by a linked superadmin (`3`).
 
+- `champsplayer private <player_or_username>`
+  Toggle whether this player appears in unfiltered `champselo` output.
+
 You can also use `champshelp player`."""
 
 
@@ -234,6 +237,24 @@ async def _handle_player_admin(ctx, args, db_path: str) -> None:
     )
 
 
+async def _handle_player_private(ctx, args, db_path: str) -> None:
+    player_identifier = " ".join(args).strip()
+    if not player_identifier:
+        await ctx.send("Usage: `champsplayer private <caseinsensitive_player_or_casesensitive_username>`")
+        return
+
+    try:
+        resolved_name, is_private = await asyncio.to_thread(db.toggle_player_private, db_path, player_identifier)
+    except Exception as exc:
+        await ctx.send(f"Could not toggle privacy: {exc}")
+        return
+
+    state_text = "hidden" if is_private else "visible"
+    await ctx.send(
+        f"`{resolved_name}` is now `{state_text}` in unfiltered `champselo` output."
+    )
+
+
 async def handle_player(ctx, args, db_path: str) -> None:
     subcommand = args[0].lower() if args else "help"
     if subcommand == "help":
@@ -253,5 +274,8 @@ async def handle_player(ctx, args, db_path: str) -> None:
         return
     if subcommand == "admin":
         await _handle_player_admin(ctx, args[1:], db_path)
+        return
+    if subcommand == "private":
+        await _handle_player_private(ctx, args[1:], db_path)
         return
     await _handle_player_help(ctx)

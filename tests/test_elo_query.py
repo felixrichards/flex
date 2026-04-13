@@ -56,3 +56,28 @@ def test_get_elo_rows_resolves_username_to_mapped_name_and_dedupes(tmp_path) -> 
 
     wyn = db.get_elo_rows(db_path, ["Wyn"])
     assert [row.player for row in wyn] == ["Wyn"]
+
+
+def test_get_elo_rows_hides_private_players_only_for_unfiltered_queries(tmp_path) -> None:
+    db_path = str(tmp_path / "elo_private.db")
+    db.init_db(db_path)
+    db.set_player_mapping(db_path, "MaBalls", "Felix")
+
+    match = _make_match(
+        ["MaBalls", "A", "B", "C", "D"],
+        ["E", "F", "G", "H", "I"],
+    )
+    assert db.insert_match(db_path, match) is True
+
+    resolved_name, is_private = db.toggle_player_private(db_path, "Felix")
+    assert resolved_name == "Felix"
+    assert is_private is True
+
+    full = db.get_elo_rows(db_path)
+    assert "Felix" not in [row.player for row in full]
+
+    by_name = db.get_elo_rows(db_path, ["Felix"])
+    assert [row.player for row in by_name] == ["Felix"]
+
+    by_username = db.get_elo_rows(db_path, ["MaBalls"])
+    assert [row.player for row in by_username] == ["Felix"]

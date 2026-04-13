@@ -12,3 +12,4 @@ class PlayerRecord(Base):
     custom_points: Mapped[int] = mapped_column(Integer, nullable=False, default=1000)
     dodges: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     privilege: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    private: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
