@@ -115,6 +115,8 @@ def test_handle_match_linkdiscord_prefers_actual_name(monkeypatch) -> None:
 
     monkeypatch.setattr(player.db, "resolve_player_identifier_for_link", _fake_resolve)
     monkeypatch.setattr(player.db, "set_discord_player_mapping", _fake_set_discord)
+    monkeypatch.setattr(player.db, "get_discord_user_privilege", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(player.db, "get_discord_linked_player_name", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(player.asyncio, "to_thread", _fake_to_thread)
 
     ctx = _FakeLinkCtx(author_id=9876)
@@ -139,6 +141,8 @@ def test_handle_match_linkdiscord_username_resolves_to_actual_name(monkeypatch) 
 
     monkeypatch.setattr(player.db, "resolve_player_identifier_for_link", _fake_resolve)
     monkeypatch.setattr(player.db, "set_discord_player_mapping", _fake_set_discord)
+    monkeypatch.setattr(player.db, "get_discord_user_privilege", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(player.db, "get_discord_linked_player_name", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(player.asyncio, "to_thread", _fake_to_thread)
 
     ctx = _FakeLinkCtx(author_id=4321)
@@ -146,6 +150,41 @@ def test_handle_match_linkdiscord_username_resolves_to_actual_name(monkeypatch) 
 
     assert calls == [(4321, "Felix")]
     assert ctx.messages == ["Linked Discord user `4321` -> player `Felix`"]
+
+
+def test_handle_match_linkdiscord_blocks_non_admin_remap(monkeypatch) -> None:
+    def _fake_resolve(_db_path, identifier):
+        return "Felix" if identifier == "Felix" else None
+
+    def _fake_existing_target(_db_path, discord_user_id):
+        assert discord_user_id == 4321
+        return "Wyn"
+
+    async def _fake_to_thread(func, *args, **kwargs):
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr(player.db, "resolve_player_identifier_for_link", _fake_resolve)
+    monkeypatch.setattr(player.db, "get_discord_user_privilege", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(player.db, "get_discord_linked_player_name", _fake_existing_target)
+    monkeypatch.setattr(player.asyncio, "to_thread", _fake_to_thread)
+
+    ctx = _FakeLinkCtx(author_id=9999)
+    asyncio.run(player._handle_player_linkdiscord(ctx, ["Felix", "4321"], "/tmp/test.db"))
+
+    assert ctx.messages == ["Only admins can remap a Discord user from one player to another."]
+
+
+def test_handle_player_admin_requires_superadmin(monkeypatch) -> None:
+    async def _fake_to_thread(func, *args, **kwargs):
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr(player.asyncio, "to_thread", _fake_to_thread)
+    monkeypatch.setattr(player.db, "get_discord_user_privilege", lambda *_args, **_kwargs: 2)
+
+    ctx = _FakeLinkCtx(author_id=1111)
+    asyncio.run(player._handle_player_admin(ctx, ["Felix"], "/tmp/test.db"))
+
+    assert ctx.messages == ["Only superadmins can grant admin privilege."]
 
 
 def test_handle_on_message_corrected_payload_is_saved(monkeypatch) -> None:

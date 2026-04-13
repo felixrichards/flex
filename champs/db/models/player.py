@@ -9,3 +9,6 @@ class PlayerRecord(Base):
 
     name: Mapped[str] = mapped_column(String, primary_key=True)
     rating: Mapped[int] = mapped_column(Integer, nullable=False, default=1000)
+    custom_points: Mapped[int] = mapped_column(Integer, nullable=False, default=1000)
+    dodges: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    privilege: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

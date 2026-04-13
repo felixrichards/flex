@@ -19,3 +19,26 @@
   - loading bulk player mappings from JSON (`--players-file`)
 - Added substantial test coverage for schema, OCR resources, mapping edge cases, payload extraction, ELO, and DB behavior.
 - Refactored package structure into subpackages (`random_champs`, `scoreboard`, `db`, `common`) and route modules (`get.py`, `match.py`).
+- Added dodge workflow for drafts with per-channel windows/cooldowns:
+  - one draft request per 300s channel cooldown
+  - 60s dodge submission window
+  - per-channel in-memory dodge state and automatic re-draft after dodge penalties
+- Added ephemeral slash dodge submission (`/champsdodge`) and prefix fallback (`champsdodge`) with DM confirmation flow.
+- Added CP (custom points) alongside matchmaking ELO:
+  - CP now drives leaderboard ranking output
+  - ELO remains matchmaking input for draft balancing
+  - dodge penalties apply to CP only
+- Added per-player dodge tracking and scaling:
+  - persisted `dodges` counter on player records
+  - scaling based on `1 + dodges / max(1, games_played)`
+  - undo support that restores exact prior penalty amounts via stored dodge penalty history
+- Added privilege model and admin tooling:
+  - player privilege levels (0..3) persisted on players
+  - `champsplayer admin <player>` gated to superadmins
+  - `champsforcedodge <player> [dodges]` gated to admins for apply/undo
+  - Discord ID remap hardening: non-admins cannot remap linked Discord IDs between players
+- Added `manual_player.py` for manual privilege management.
+- Reduced `champselo` table verbosity and added new columns:
+  - compact headers (`#`, `P`, `CP`, `E`, `W`, `L`, `D`)
+  - optional `S` scaling column on filtered bot queries
+  - shared table formatter reused by bot + manual tooling.

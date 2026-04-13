@@ -1,6 +1,7 @@
 import asyncio
 import re
 
+from champs.constants import Privilege, privilege_name
 from champs.db import db
 
 HELP = """`champsplayer` commands:
@@ -18,6 +19,10 @@ HELP = """`champsplayer` commands:
 - `champsplayer linkdiscord <player_or_username> [@discord_user_or_id]`
   Link a Discord user to a player for voice-based draft detection.
   If no user is provided, links the command caller.
+
+- `champsplayer admin <player_or_username>`
+  Set player privilege to admin (`2`).
+  Only callable by a linked superadmin (`3`).
 
 You can also use `champshelp player`."""
 
@@ -183,6 +188,16 @@ async def _handle_player_linkdiscord(ctx, args, db_path: str) -> None:
         )
         return
 
+    actor_privilege = await asyncio.to_thread(db.get_discord_user_privilege, db_path, ctx.author.id)
+    existing_target = await asyncio.to_thread(db.get_discord_linked_player_name, db_path, discord_user_id)
+    if (
+        existing_target is not None
+        and existing_target.casefold() != resolved_player_name.casefold()
+        and actor_privilege < int(Privilege.ADMIN)
+    ):
+        await ctx.send("Only admins can remap a Discord user from one player to another.")
+        return
+
     try:
         await asyncio.to_thread(db.set_discord_player_mapping, db_path, discord_user_id, resolved_player_name)
     except Exception as exc:
@@ -190,6 +205,33 @@ async def _handle_player_linkdiscord(ctx, args, db_path: str) -> None:
         return
 
     await ctx.send(f"Linked Discord user `{discord_user_id}` -> player `{resolved_player_name}`")
+
+
+async def _handle_player_admin(ctx, args, db_path: str) -> None:
+    player_identifier = " ".join(args).strip()
+    if not player_identifier:
+        await ctx.send("Usage: `champsplayer admin <player_or_username>`")
+        return
+
+    caller_privilege = await asyncio.to_thread(db.get_discord_user_privilege, db_path, ctx.author.id)
+    if caller_privilege < int(Privilege.SUPERADMIN):
+        await ctx.send("Only superadmins can grant admin privilege.")
+        return
+
+    try:
+        resolved_name = await asyncio.to_thread(
+            db.set_player_privilege,
+            db_path,
+            player_identifier,
+            int(Privilege.ADMIN),
+        )
+    except Exception as exc:
+        await ctx.send(f"Could not grant admin privilege: {exc}")
+        return
+
+    await ctx.send(
+        f"Updated `{resolved_name}` privilege to `{privilege_name(int(Privilege.ADMIN))}` ({int(Privilege.ADMIN)})."
+    )
 
 
 async def handle_player(ctx, args, db_path: str) -> None:
@@ -208,5 +250,8 @@ async def handle_player(ctx, args, db_path: str) -> None:
         return
     if subcommand == "linkdiscord":
         await _handle_player_linkdiscord(ctx, args[1:], db_path)
+        return
+    if subcommand == "admin":
+        await _handle_player_admin(ctx, args[1:], db_path)
         return
     await _handle_player_help(ctx)

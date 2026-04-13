@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from champs.db import db
 from champs.db.models import MatchPlayerRecord, MatchRecord, PlayerRecord
+from champs.elo_table import format_elo_rows
 from champs.payloads import Match, PlayerMappingImport, PlayerMappingRow
 
 
@@ -139,49 +140,9 @@ def _backup_db_file(db_path: str) -> str:
 
 
 def _print_ratings_table(db_path: str) -> None:
-    engine = db._engine(db_path)
-    with Session(engine) as session:
-        players = session.scalars(select(PlayerRecord)).all()
-        match_rows = session.scalars(select(MatchPlayerRecord)).all()
-
-    if not players:
-        print("No players found in DB.")
-        return
-
-    records_by_player: dict[str, tuple[int, int]] = {}
-    for row in match_rows:
-        wins, losses = records_by_player.get(row.player_name, (0, 0))
-        if row.win:
-            wins += 1
-        else:
-            losses += 1
-        records_by_player[row.player_name] = (wins, losses)
-
-    rows = []
-    for player in players:
-        wins, losses = records_by_player.get(player.name, (0, 0))
-        rows.append((player.name, int(player.rating), wins, losses))
-    rows.sort(key=lambda row: (-row[1], row[0].lower()))
-
-    name_width = max(len("Player"), *(len(name) for name, _, _, _ in rows))
-    rating_width = max(len("ELO"), *(len(str(rating)) for _, rating, _, _ in rows))
-    wins_width = max(len("Wins"), *(len(str(wins)) for _, _, wins, _ in rows))
-    losses_width = max(len("Losses"), *(len(str(losses)) for _, _, _, losses in rows))
-    border = f"+-{'-' * name_width}-+-{'-' * rating_width}-+-{'-' * wins_width}-+-{'-' * losses_width}-+"
-
+    rows = db.get_elo_rows(db_path)
     print("\nPlayer ratings")
-    print(border)
-    print(
-        f"| {'Player'.ljust(name_width)} | {'ELO'.rjust(rating_width)} | "
-        f"{'Wins'.rjust(wins_width)} | {'Losses'.rjust(losses_width)} |"
-    )
-    print(border)
-    for name, rating, wins, losses in rows:
-        print(
-            f"| {name.ljust(name_width)} | {str(rating).rjust(rating_width)} | "
-            f"{str(wins).rjust(wins_width)} | {str(losses).rjust(losses_width)} |"
-        )
-    print(border)
+    print(format_elo_rows(rows, include_scale=True, codeblock=False))
 
 
 def _get_player_mapping_rows(db_path: str) -> list[tuple[str, str, str, str, str]]:

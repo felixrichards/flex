@@ -2,16 +2,19 @@ import json
 import os
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from sqlalchemy import create_engine, delete, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from champs.constants import DODGE_PENALTY, Privilege
 from champs.db.models import (
     Base,
     DiscordPlayerMappingRecord,
     MatchPlayerRecord,
     MatchRecord,
+    PlayerDodgePenaltyRecord,
     PlayerMappingRecord,
     PlayerRecord,
 )
@@ -36,9 +39,12 @@ class MappingRule:
 class EloRow:
     rank: int
     player: str
+    cp: int
     elo: int
     wins: int
     losses: int
+    dodges: int
+    dodge_scale: float
 
 
 @dataclass(frozen=True)
@@ -114,6 +120,42 @@ def _ensure_schema_upgrades(engine) -> None:
                     conn.execute(text("ALTER TABLE player_mappings ADD COLUMN preferred_role VARCHAR"))
                 if "secondary_role" not in mapping_columns:
                     conn.execute(text("ALTER TABLE player_mappings ADD COLUMN secondary_role VARCHAR"))
+
+        player_info = conn.execute(text("PRAGMA table_info(players)")).all()
+        if player_info:
+            player_columns = {row[1] for row in player_info}
+            if "custom_points" not in player_columns:
+                conn.execute(text("ALTER TABLE players ADD COLUMN custom_points INTEGER"))
+                conn.execute(
+                    text(
+                        "UPDATE players SET custom_points = rating "
+                        "WHERE custom_points IS NULL"
+                    )
+                )
+            if "dodges" not in player_columns:
+                conn.execute(text("ALTER TABLE players ADD COLUMN dodges INTEGER DEFAULT 0"))
+                conn.execute(text("UPDATE players SET dodges = 0 WHERE dodges IS NULL"))
+            if "privilege" not in player_columns:
+                conn.execute(text("ALTER TABLE players ADD COLUMN privilege INTEGER DEFAULT 0"))
+                conn.execute(text("UPDATE players SET privilege = 0 WHERE privilege IS NULL"))
+
+        dodge_penalty_info = conn.execute(text("PRAGMA table_info(player_dodge_penalties)")).all()
+        if not dodge_penalty_info:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE player_dodge_penalties (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        player_name VARCHAR NOT NULL,
+                        penalty INTEGER NOT NULL,
+                        source VARCHAR NOT NULL,
+                        channel_id VARCHAR,
+                        created_at VARCHAR NOT NULL,
+                        FOREIGN KEY(player_name) REFERENCES players (name)
+                    )
+                    """
+                )
+            )
 
 
 def _seed_player_mappings(session: Session) -> None:
@@ -432,31 +474,9 @@ def get_discord_player_mappings(db_path: str, discord_user_ids: list[int] | list
 
 
 def resolve_player_identifier_for_link(db_path: str, identifier: str) -> str | None:
-    token = identifier.strip()
-    if not token:
-        return None
-
     engine = _engine(db_path)
     with Session(engine) as session:
-        mapping_rows = session.scalars(select(PlayerMappingRecord).order_by(PlayerMappingRecord.id.asc())).all()
-        player_names = session.scalars(select(PlayerRecord.name)).all()
-
-    # Prefer actual-name matching (case-insensitive).
-    canonical_name_by_casefold: dict[str, str] = {}
-    for row in mapping_rows:
-        canonical_name_by_casefold[row.name.casefold()] = row.name
-    for name in player_names:
-        canonical_name_by_casefold[name.casefold()] = name
-    matched_name = canonical_name_by_casefold.get(token.casefold())
-    if matched_name is not None:
-        return matched_name
-
-    # Fallback: username mapping (case-sensitive), newest mapping first.
-    for row in reversed(mapping_rows):
-        if row.username == token:
-            return row.name
-
-    return None
+        return resolve_player_identifier_for_link_with_session(session, identifier)
 
 
 def get_player_mapping_overview_rows(
@@ -652,11 +672,16 @@ def _expected_score(rating_a: float, rating_b: float) -> float:
 
 
 def _recalculate_ratings(session: Session, reset_players: bool = False) -> None:
+    players = session.scalars(select(PlayerRecord)).all()
+    preserved_metadata = {
+        player.name: (int(player.custom_points), int(player.dodges), int(player.privilege))
+        for player in players
+    }
     if reset_players:
         session.execute(delete(PlayerRecord))
         ratings: dict[str, float] = {}
+        players = []
     else:
-        players = session.scalars(select(PlayerRecord)).all()
         ratings = {player.name: float(INITIAL_RATING) for player in players}
 
     matches = session.scalars(
@@ -683,12 +708,36 @@ def _recalculate_ratings(session: Session, reset_players: bool = False) -> None:
         for name in losers:
             ratings[name] = ratings.get(name, float(INITIAL_RATING)) - delta
 
+    penalty_rows = session.scalars(select(PlayerDodgePenaltyRecord)).all()
+    penalty_sum_by_player: dict[str, int] = {}
+    dodge_count_by_player: dict[str, int] = {}
+    for row in penalty_rows:
+        penalty_sum_by_player[row.player_name] = penalty_sum_by_player.get(row.player_name, 0) + int(row.penalty)
+        dodge_count_by_player[row.player_name] = dodge_count_by_player.get(row.player_name, 0) + 1
+
     existing_players = {player.name: player for player in session.scalars(select(PlayerRecord)).all()}
     for name, rating in ratings.items():
+        rounded = int(round(rating))
+        applied_penalties = penalty_sum_by_player.get(name, 0)
+        dodge_count = dodge_count_by_player.get(name, 0)
         if name in existing_players:
-            existing_players[name].rating = int(round(rating))
+            existing_players[name].rating = rounded
+            existing_players[name].custom_points = rounded - applied_penalties
+            existing_players[name].dodges = dodge_count
         else:
-            session.add(PlayerRecord(name=name, rating=int(round(rating))))
+            _cp, _dodges, privilege = preserved_metadata.get(
+                name,
+                (rounded, 0, int(Privilege.PLAYER)),
+            )
+            session.add(
+                PlayerRecord(
+                    name=name,
+                    rating=rounded,
+                    custom_points=rounded - applied_penalties,
+                    dodges=dodge_count,
+                    privilege=privilege,
+                )
+            )
 
 
 def _refresh_match_player_names_from_mappings(session: Session) -> None:
@@ -729,7 +778,13 @@ def recalculate_all_ratings(db_path: str, refresh_mappings: bool = False) -> Non
 def _ensure_player(session: Session, name: str) -> PlayerRecord:
     player = session.get(PlayerRecord, name)
     if player is None:
-        player = PlayerRecord(name=name, rating=INITIAL_RATING)
+        player = PlayerRecord(
+            name=name,
+            rating=INITIAL_RATING,
+            custom_points=INITIAL_RATING,
+            dodges=0,
+            privilege=int(Privilege.PLAYER),
+        )
         session.add(player)
         session.flush()
     return player
@@ -747,9 +802,13 @@ def _apply_match_delta(session: Session, winner_names: list[str], loser_names: l
     delta = K_FACTOR * (1.0 - expected_win)
 
     for player in winner_players:
-        player.rating = int(round(float(player.rating) + delta))
+        next_rating = int(round(float(player.rating) + delta))
+        player.custom_points = int(player.custom_points) + (next_rating - int(player.rating))
+        player.rating = next_rating
     for player in loser_players:
-        player.rating = int(round(float(player.rating) - delta))
+        next_rating = int(round(float(player.rating) - delta))
+        player.custom_points = int(player.custom_points) + (next_rating - int(player.rating))
+        player.rating = next_rating
 
 
 def insert_match(db_path: str, match: Match) -> bool:
@@ -821,6 +880,188 @@ def delete_match(db_path: str, checksum: str) -> bool:
         return True
 
 
+def _count_games_by_player(match_rows: list[MatchPlayerRecord]) -> dict[str, int]:
+    games_by_player: dict[str, int] = {}
+    for row in match_rows:
+        games_by_player[row.player_name] = games_by_player.get(row.player_name, 0) + 1
+    return games_by_player
+
+
+def dodge_scale_for_player(dodges: int, games_played: int) -> float:
+    safe_games = max(1, int(games_played))
+    safe_dodges = max(0, int(dodges))
+    return 1.0 + (float(safe_dodges) / float(safe_games))
+
+
+def apply_dodge_penalty(
+    db_path: str,
+    player_name: str,
+    base_penalty: float,
+    *,
+    source: str = "dodge",
+    channel_id: int | str | None = None,
+) -> int:
+    normalized_player = player_name.strip()
+    if not normalized_player:
+        raise ValueError("Player name must be non-empty.")
+    if base_penalty < 0:
+        raise ValueError("Base penalty must be non-negative.")
+
+    engine = _engine(db_path)
+    with Session(engine) as session:
+        player = session.scalar(
+            select(PlayerRecord).where(func.lower(PlayerRecord.name) == normalized_player.casefold())
+        )
+        if player is None:
+            raise ValueError(f"Unknown player: {player_name}")
+
+        match_rows = session.scalars(select(MatchPlayerRecord)).all()
+        games_by_player = _count_games_by_player(match_rows)
+        games_played = games_by_player.get(player.name, 0)
+        scale = dodge_scale_for_player(int(player.dodges), games_played)
+        penalty = int(round(float(base_penalty) * scale))
+
+        player.custom_points = int(player.custom_points) - penalty
+        player.dodges = int(player.dodges) + 1
+        session.add(
+            PlayerDodgePenaltyRecord(
+                player_name=player.name,
+                penalty=penalty,
+                source=source,
+                channel_id=str(channel_id) if channel_id is not None else None,
+                created_at=datetime.now(timezone.utc).isoformat(),
+            )
+        )
+        session.commit()
+        return penalty
+
+
+def undo_recent_dodge_penalties(db_path: str, player_name: str, count: int = 1) -> int:
+    normalized_player = player_name.strip()
+    if not normalized_player:
+        raise ValueError("Player name must be non-empty.")
+    if count <= 0:
+        return 0
+
+    engine = _engine(db_path)
+    with Session(engine) as session:
+        player = session.scalar(
+            select(PlayerRecord).where(func.lower(PlayerRecord.name) == normalized_player.casefold())
+        )
+        if player is None:
+            raise ValueError(f"Unknown player: {player_name}")
+
+        penalties = session.scalars(
+            select(PlayerDodgePenaltyRecord)
+            .where(PlayerDodgePenaltyRecord.player_name == player.name)
+            .order_by(PlayerDodgePenaltyRecord.id.desc())
+        ).all()
+        if len(penalties) < count:
+            raise ValueError(f"Cannot undo {count} dodge(s): player has only {len(penalties)} applied dodge(s).")
+
+        restored = 0
+        for row in penalties[:count]:
+            restored += int(row.penalty)
+            session.delete(row)
+            player.dodges = max(0, int(player.dodges) - 1)
+
+        player.custom_points = int(player.custom_points) + restored
+        session.commit()
+        return restored
+
+
+def resolve_player_identifier(db_path: str, identifier: str) -> str | None:
+    token = identifier.strip()
+    if not token:
+        return None
+
+    engine = _engine(db_path)
+    with Session(engine) as session:
+        return resolve_player_identifier_for_link_with_session(session, token)
+
+
+def resolve_player_identifier_for_link_with_session(session: Session, identifier: str) -> str | None:
+    token = identifier.strip()
+    if not token:
+        return None
+
+    mapping_rows = session.scalars(select(PlayerMappingRecord).order_by(PlayerMappingRecord.id.asc())).all()
+    player_names = session.scalars(select(PlayerRecord.name)).all()
+
+    canonical_name_by_casefold: dict[str, str] = {}
+    for row in mapping_rows:
+        canonical_name_by_casefold[row.name.casefold()] = row.name
+    for name in player_names:
+        canonical_name_by_casefold[name.casefold()] = name
+    matched_name = canonical_name_by_casefold.get(token.casefold())
+    if matched_name is not None:
+        return matched_name
+
+    for row in reversed(mapping_rows):
+        if row.username == token:
+            return row.name
+    return None
+
+
+def get_player_privilege(db_path: str, identifier: str) -> int:
+    resolved_name = resolve_player_identifier(db_path, identifier)
+    if resolved_name is None:
+        return int(Privilege.PLAYER)
+    engine = _engine(db_path)
+    with Session(engine) as session:
+        player = session.get(PlayerRecord, resolved_name)
+        if player is None:
+            return int(Privilege.PLAYER)
+        return int(player.privilege or 0)
+
+
+def set_player_privilege(db_path: str, identifier: str, privilege: int) -> str:
+    normalized_privilege = int(privilege)
+    if normalized_privilege not in {int(level) for level in Privilege}:
+        raise ValueError("Privilege must be one of: 0, 1, 2, 3.")
+
+    engine = _engine(db_path)
+    with Session(engine) as session:
+        resolved_name = resolve_player_identifier_for_link_with_session(session, identifier)
+        if resolved_name is None:
+            raise ValueError(f"Unknown player: {identifier}")
+        player = session.get(PlayerRecord, resolved_name)
+        if player is None:
+            player = PlayerRecord(
+                name=resolved_name,
+                rating=INITIAL_RATING,
+                custom_points=INITIAL_RATING,
+                dodges=0,
+                privilege=normalized_privilege,
+            )
+            session.add(player)
+        else:
+            player.privilege = normalized_privilege
+        session.commit()
+        return resolved_name
+
+
+def get_discord_linked_player_name(db_path: str, discord_user_id: int | str) -> str | None:
+    normalized_user_id = str(discord_user_id).strip()
+    if not normalized_user_id:
+        return None
+    engine = _engine(db_path)
+    with Session(engine) as session:
+        row = session.scalar(
+            select(DiscordPlayerMappingRecord).where(DiscordPlayerMappingRecord.discord_user_id == normalized_user_id)
+        )
+        if row is None:
+            return None
+        return resolve_player_identifier_for_link_with_session(session, row.player_username)
+
+
+def get_discord_user_privilege(db_path: str, discord_user_id: int | str) -> int:
+    linked_name = get_discord_linked_player_name(db_path, discord_user_id)
+    if linked_name is None:
+        return int(Privilege.PLAYER)
+    return get_player_privilege(db_path, linked_name)
+
+
 def resolve_match_names(db_path: str, match: Match) -> Match:
     engine = _engine(db_path)
     with Session(engine) as session:
@@ -868,19 +1109,28 @@ def get_elo_rows(db_path: str, identifiers: list[str] | None = None) -> list[Elo
             losses += 1
         records_by_player[row.player_name] = (wins, losses)
 
-    ordered_players = sorted(players, key=lambda player: (-int(player.rating), player.name.lower()))
+    ordered_players = sorted(
+        players,
+        key=lambda player: (-int(player.custom_points), -int(player.rating), player.name.lower()),
+    )
     table: list[EloRow] = []
+    games_by_player = _count_games_by_player(match_rows)
     for idx, player in enumerate(ordered_players, start=1):
         if filtered_names is not None and player.name not in filtered_names:
             continue
         wins, losses = records_by_player.get(player.name, (0, 0))
+        games = games_by_player.get(player.name, 0)
+        dodge_scale = dodge_scale_for_player(int(player.dodges), games)
         table.append(
             EloRow(
                 rank=idx,
                 player=player.name,
+                cp=int(player.custom_points),
                 elo=int(player.rating),
                 wins=wins,
                 losses=losses,
+                dodges=int(player.dodges),
+                dodge_scale=dodge_scale,
             )
         )
     return table

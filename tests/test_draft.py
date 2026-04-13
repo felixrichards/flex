@@ -1,14 +1,31 @@
 import asyncio
 import random
 
+import pytest
+
 from champs.db import db
 from champs.draft import (
+    DRAFT_STATE_BY_CHANNEL,
     DraftPlayer,
     _best_team_assignment,
     _build_draft,
     _parse_draft_args,
+    handle_dodge,
     handle_draft,
 )
+
+
+@pytest.fixture(autouse=True)
+def _clear_draft_state():
+    for state in DRAFT_STATE_BY_CHANNEL.values():
+        if state.window_end_task is not None:
+            state.window_end_task.cancel()
+    DRAFT_STATE_BY_CHANNEL.clear()
+    yield
+    for state in DRAFT_STATE_BY_CHANNEL.values():
+        if state.window_end_task is not None:
+            state.window_end_task.cancel()
+    DRAFT_STATE_BY_CHANNEL.clear()
 
 
 def test_parse_draft_args_supports_explicit_and_opt_in_out() -> None:
@@ -96,9 +113,11 @@ def test_build_draft_randomized_mode_is_seed_reproducible() -> None:
 
 
 class _FakeCtx:
-    def __init__(self, guild=None) -> None:
+    def __init__(self, guild=None, *, channel_id: int = 1, author_id: int = 9999) -> None:
         self.guild = guild
         self.messages: list[str] = []
+        self.channel = type("Channel", (), {"id": channel_id})()
+        self.author = type("Author", (), {"id": author_id})()
 
     async def send(self, message: str) -> None:
         self.messages.append(message)
@@ -310,3 +329,57 @@ def test_handle_draft_randomly_samples_when_more_than_ten_players(tmp_path) -> N
     assert "More than 10 players available (11)" in ctx.messages[0]
     assert "Blue Team" in ctx.messages[0]
     assert "Red Team" in ctx.messages[0]
+
+
+def test_handle_draft_rejects_with_remaining_cooldown(tmp_path) -> None:
+    db_path = str(tmp_path / "draft_cooldown.db")
+    db.init_db(db_path)
+
+    role_cycle = [
+        ("TOP", "JUNGLE"),
+        ("JUNGLE", "TOP"),
+        ("MID", "BOT"),
+        ("BOT", "SUPP"),
+        ("SUPP", "MID"),
+    ]
+    players = []
+    for idx in range(1, 11):
+        username = f"U{idx}"
+        name = f"P{idx}"
+        primary, secondary = role_cycle[(idx - 1) % len(role_cycle)]
+        db.set_player_mapping(db_path, username, name, primary, secondary)
+        players.append(username)
+
+    ctx = _FakeCtx(channel_id=9)
+    asyncio.run(handle_draft(ctx, tuple(players), db_path))
+    asyncio.run(handle_draft(ctx, tuple(players), db_path))
+
+    assert any("Dodge window:" in message for message in ctx.messages)
+    assert any("Draft cooldown active in this channel." in message for message in ctx.messages)
+
+
+def test_handle_dodge_accepts_linked_player_in_active_draft(tmp_path) -> None:
+    db_path = str(tmp_path / "draft_dodge_submit.db")
+    db.init_db(db_path)
+
+    role_cycle = [
+        ("TOP", "JUNGLE"),
+        ("JUNGLE", "TOP"),
+        ("MID", "BOT"),
+        ("BOT", "SUPP"),
+        ("SUPP", "MID"),
+    ]
+    players = []
+    for idx in range(1, 11):
+        username = f"U{idx}"
+        name = f"P{idx}"
+        primary, secondary = role_cycle[(idx - 1) % len(role_cycle)]
+        db.set_player_mapping(db_path, username, name, primary, secondary)
+        db.set_discord_player_mapping(db_path, 7000 + idx, name)
+        players.append(username)
+
+    draft_ctx = _FakeCtx(channel_id=17, author_id=7001)
+    asyncio.run(handle_draft(draft_ctx, tuple(players), db_path))
+    message = asyncio.run(handle_dodge(draft_ctx, db_path))
+
+    assert "Dodge submitted for" in message

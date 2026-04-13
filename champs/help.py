@@ -1,6 +1,7 @@
 from champs.draft import HELP as DRAFT_HELP
 from champs.elo import HELP as ELO_HELP
 from champs.fearless import HELP as FEARLESS_HELP
+from champs.forcedodge import HELP as FORCEDODGE_HELP
 from champs.get import HELP as GET_HELP
 from champs.match import HELP as MATCH_HELP
 from champs.player import HELP as PLAYER_HELP
@@ -19,6 +20,8 @@ Commands:
 - `player`: manage player mappings + Discord links
 - `elo`: show ELO leaderboard
 - `draft`: build balanced teams
+- `dodge`: submit a dodge for current draft
+- `forcedodge`: admin dodge penalty override
 - `fearless`: manage fearless bans/session state
 - `help`: this help command
 
@@ -44,6 +47,8 @@ COMMAND_HELP = {
     "player": PLAYER_HELP,
     "elo": ELO_HELP,
     "draft": DRAFT_HELP,
+    "dodge": "Use `/dodge` for ephemeral dodge submissions, or `champsdodge` (DM confirmation).",
+    "forcedodge": FORCEDODGE_HELP,
     "fearless": FEARLESS_HELP,
     "help": HELP,
 }

@@ -23,6 +23,13 @@ def _ratings(db_path: str) -> dict[str, int]:
         return {row.name: row.rating for row in rows}
 
 
+def _cp(db_path: str) -> dict[str, int]:
+    engine = db._engine(db_path)
+    with Session(engine) as session:
+        rows = session.scalars(select(PlayerRecord)).all()
+        return {row.name: row.custom_points for row in rows}
+
+
 def test_iterative_elo_and_duplicate_guard(tmp_path) -> None:
     db_path = str(tmp_path / "elo.db")
     db.init_db(db_path)
@@ -47,6 +54,22 @@ def test_iterative_elo_and_duplicate_guard(tmp_path) -> None:
     assert after_second["F"] < after_first["F"]
     assert "X" in after_second
     assert "Y" in after_second
+
+
+def test_insert_match_applies_equal_elo_and_cp_deltas(tmp_path) -> None:
+    db_path = str(tmp_path / "elo_cp_delta.db")
+    db.init_db(db_path)
+
+    winners = ["A", "B", "C", "D", "E"]
+    losers = ["F", "G", "H", "I", "J"]
+    match = _make_match(winners, losers)
+    assert db.insert_match(db_path, match) is True
+
+    ratings = _ratings(db_path)
+    custom_points = _cp(db_path)
+
+    for player in winners + losers:
+        assert (ratings[player] - db.INITIAL_RATING) == (custom_points[player] - db.INITIAL_RATING)
 
 
 def test_insert_match_rejects_missing_checksum(tmp_path) -> None:

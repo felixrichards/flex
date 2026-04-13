@@ -1,10 +1,13 @@
+import asyncio
 import itertools
 import random
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from champs.constants import DODGE_MAX_NO_PENALTY, DODGE_PENALTY, DODGE_WINDOW_SECONDS, DRAFT_WINDOW_SECONDS
 from champs.db import db
 from champs.db.models import PlayerMappingRecord, PlayerRecord
 
@@ -25,7 +28,11 @@ HELP = """`champsdraft` usage:
 - `champsdraft [<player_or_username> ...] [+player ...] [-player ...]`
   `+` opts a player in and `-` opts a player out.
   If no explicit list is provided, voice-channel players are used as the base.
-"""
+
+Draft rules:
+- One draft every 300 seconds.
+- After a draft is posted, a 60 second dodge window opens.
+- Submit dodges with `/dodge` (ephemeral)."""
 
 @dataclass(frozen=True)
 class DraftPlayer:
@@ -57,6 +64,14 @@ class DraftResult:
     red: TeamDraft
 
 
+@dataclass
+class DraftWindowState:
+    created_at: datetime
+    players: list[DraftPlayer]
+    dodger_names: set[str]
+    window_end_task: asyncio.Task | None = None
+
+
 @dataclass(frozen=True)
 class MappingRule:
     username: str
@@ -74,6 +89,9 @@ class _ResolverState:
     canonical_name_by_casefold: dict[str, str]
     role_pref_by_name_casefold: dict[str, tuple[str | None, str | None]]
     rating_by_name_casefold: dict[str, int]
+
+
+DRAFT_STATE_BY_CHANNEL: dict[int, DraftWindowState] = {}
 
 
 def _clean_token(token: str) -> str:
@@ -340,25 +358,16 @@ def _fit_label(penalty: int) -> str:
 def _format_team_table(name: str, team: TeamDraft) -> str:
     role_width = max(len("Role"), *(len(row.role) for row in team.assignments))
     player_width = max(len("Player"), *(len(row.player.name) for row in team.assignments))
-    elo_width = max(len("ELO"), *(len(str(row.player.elo)) for row in team.assignments))
-    adjusted_width = max(len("Adj"), *(len(str(row.adjusted_elo)) for row in team.assignments))
     fit_width = max(len("Fit"), *(len(_fit_label(row.penalty)) for row in team.assignments))
 
     lines = [
         name,
-        (
-            f"{'Role'.ljust(role_width)}  {'Player'.ljust(player_width)}  "
-            f"{'ELO'.rjust(elo_width)}  {'Adj'.rjust(adjusted_width)}  {'Fit'.ljust(fit_width)}"
-        ),
-        (
-            f"{'-' * role_width}  {'-' * player_width}  "
-            f"{'-' * elo_width}  {'-' * adjusted_width}  {'-' * fit_width}"
-        ),
+        f"{'Role'.ljust(role_width)}  {'Player'.ljust(player_width)}  {'Fit'.ljust(fit_width)}",
+        f"{'-' * role_width}  {'-' * player_width}  {'-' * fit_width}",
     ]
     for row in team.assignments:
         lines.append(
-            f"{row.role.ljust(role_width)}  {row.player.name.ljust(player_width)}  "
-            f"{str(row.player.elo).rjust(elo_width)}  {str(row.adjusted_elo).rjust(adjusted_width)}  {_fit_label(row.penalty).ljust(fit_width)}"
+            f"{row.role.ljust(role_width)}  {row.player.name.ljust(player_width)}  {_fit_label(row.penalty).ljust(fit_width)}"
         )
     raw_avg = team.raw_total_elo / len(team.assignments)
     adjusted_avg = team.adjusted_total_elo / len(team.assignments)
@@ -395,7 +404,7 @@ def _format_missing_setup_message(unknown_usernames: list[str], missing_roles: l
             )
         lines.append(
             "- If these are Discord names, add Discord linkage with "
-            "`champsmatch linkdiscord <league_username> [@discord_user_or_id]`."
+            "`champsplayer linkdiscord <player_or_username> [@discord_user_or_id]`."
         )
 
     if missing_roles:
@@ -414,11 +423,20 @@ def _format_missing_setup_message(unknown_usernames: list[str], missing_roles: l
     return "\n".join(lines)
 
 
-async def handle_draft(ctx, args, db_path: str) -> None:
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _format_seconds(seconds: int) -> str:
+    safe = max(0, int(seconds))
+    mins, secs = divmod(safe, 60)
+    return f"{mins:02d}:{secs:02d}"
+
+
+def _resolve_draft_players(ctx, args, db_path: str) -> tuple[list[DraftPlayer] | None, str | None]:
     explicit, added, removed, wants_help = _parse_draft_args(args)
     if wants_help:
-        await ctx.send(HELP)
-        return
+        return None, HELP
 
     resolver_state = _build_resolver_state(db_path)
 
@@ -442,8 +460,7 @@ async def handle_draft(ctx, args, db_path: str) -> None:
     overlap = sorted(added_name_keys & removed_name_keys)
     if overlap:
         overlap_names = ", ".join(resolver_state.canonical_name_by_casefold.get(name, name) for name in overlap)
-        await ctx.send(f"Conflicting draft modifiers: player(s) included and excluded: {overlap_names}")
-        return
+        return None, f"Conflicting draft modifiers: player(s) included and excluded: {overlap_names}"
 
     unknown_usernames: list[str] = []
     missing_roles_by_name: dict[str, MappingRule] = {}
@@ -458,8 +475,7 @@ async def handle_draft(ctx, args, db_path: str) -> None:
     missing_roles = list(missing_roles_by_name.values())
 
     if unknown_usernames or missing_roles:
-        await ctx.send(_format_missing_setup_message(unknown_usernames, missing_roles))
-        return
+        return None, _format_missing_setup_message(unknown_usernames, missing_roles)
 
     players = _resolve_players(merged_tokens, resolver_state)
     players = [player for player in players if player.name.casefold() not in removed_name_keys]
@@ -467,25 +483,133 @@ async def handle_draft(ctx, args, db_path: str) -> None:
     required_players = len(ROLES) * 2
     if len(players) < required_players:
         source_hint = "voice channels (+/- overrides)" if not explicit else "explicit list (+/- overrides)"
-        await ctx.send(
+        return None, (
             f"Need exactly 10 unique players; resolved {len(players)} from {source_hint}.\n"
             "Use `champsdraft help` for syntax."
         )
-        return
     sampled_from: int | None = None
     if len(players) > required_players:
         sampled_from = len(players)
         players = random.sample(players, required_players)
 
+    warning = None
+    if sampled_from is not None:
+        warning = f"More than 10 players available ({sampled_from}). Randomly selected 10 for this draft."
+    return players, warning
+
+
+async def _finalize_dodge_window(channel_id: int, ctx, db_path: str) -> None:
+    state = DRAFT_STATE_BY_CHANNEL.get(channel_id)
+    if state is None:
+        return
+    if state.window_end_task is not None and state.window_end_task.cancelled():
+        return
+
+    dodger_names = sorted(state.dodger_names, key=str.casefold)
+    if not dodger_names:
+        state.window_end_task = None
+        await ctx.send("Dodge window closed. Draft locked.")
+        return
+
+    if len(dodger_names) > DODGE_MAX_NO_PENALTY:
+        state.window_end_task = None
+        await ctx.send(
+            f"Dodge window closed: {len(dodger_names)} dodges. No CP penalty applied (threshold: >{DODGE_MAX_NO_PENALTY}). "
+            "Posting a new draft."
+        )
+        await _post_new_draft(ctx, db_path, players=state.players)
+        return
+
+    base_penalty = DODGE_PENALTY / float(len(dodger_names))
+    applied_parts: list[str] = []
+    for name in dodger_names:
+        penalty = db.apply_dodge_penalty(
+            db_path,
+            name,
+            base_penalty,
+            source="draft_dodge",
+            channel_id=channel_id,
+        )
+        applied_parts.append(f"{name} -{penalty} CP")
+
+    state.window_end_task = None
+    await ctx.send(
+        "Dodge window closed. Penalties applied: "
+        + ", ".join(applied_parts)
+        + ". Posting a new draft."
+    )
+    await _post_new_draft(ctx, db_path, players=state.players)
+
+
+async def _open_dodge_window(channel_id: int, ctx, db_path: str, players: list[DraftPlayer]) -> None:
+    state = DraftWindowState(created_at=_utc_now(), players=list(players), dodger_names=set(), window_end_task=None)
+    DRAFT_STATE_BY_CHANNEL[channel_id] = state
+
+    async def _runner() -> None:
+        await asyncio.sleep(DODGE_WINDOW_SECONDS)
+        await _finalize_dodge_window(channel_id, ctx, db_path)
+
+    state.window_end_task = asyncio.create_task(_runner())
+
+
+async def _post_new_draft(ctx, db_path: str, *, players: list[DraftPlayer], prefix_message: str | None = None) -> None:
+    channel_id = getattr(getattr(ctx, "channel", None), "id", 0)
     try:
         result = _build_draft(players, randomize=True)
     except ValueError as exc:
         await ctx.send(str(exc))
         return
-    if sampled_from is not None:
-        await ctx.send(
-            f"More than 10 players available ({sampled_from}). Randomly selected 10 for this draft.\n"
-            f"{_format_draft_message(result)}"
-        )
+    message = _format_draft_message(result) + "\n" + f"Dodge window: `{DODGE_WINDOW_SECONDS}s`. Use `/dodge` or `champsdodge`."
+    if prefix_message:
+        message = prefix_message + "\n" + message
+    await ctx.send(message)
+    await _open_dodge_window(channel_id, ctx, db_path, players)
+
+
+async def handle_draft(ctx, args, db_path: str) -> None:
+    channel_id = getattr(getattr(ctx, "channel", None), "id", 0)
+
+    now = _utc_now()
+    state = DRAFT_STATE_BY_CHANNEL.get(channel_id)
+    if state is not None:
+        elapsed = now - state.created_at
+        if elapsed < timedelta(seconds=DRAFT_WINDOW_SECONDS):
+            remaining = int((timedelta(seconds=DRAFT_WINDOW_SECONDS) - elapsed).total_seconds())
+            await ctx.send(
+                "Draft cooldown active in this channel. "
+                f"Please wait `{_format_seconds(remaining)}` before requesting another draft."
+            )
+            return
+
+    players, result_message = _resolve_draft_players(ctx, args, db_path)
+    if players is None:
+        await ctx.send(result_message or HELP)
         return
-    await ctx.send(_format_draft_message(result))
+    await _post_new_draft(ctx, db_path, players=players, prefix_message=result_message)
+
+
+async def handle_dodge(ctx, db_path: str) -> str:
+    channel_id = getattr(getattr(ctx, "channel", None), "id", 0)
+
+    state = DRAFT_STATE_BY_CHANNEL.get(channel_id)
+    if state is None:
+        return "No active draft in this channel."
+
+    elapsed = _utc_now() - state.created_at
+    if elapsed >= timedelta(seconds=DODGE_WINDOW_SECONDS):
+        return "Dodge window is already closed for this draft."
+
+    caller_name = db.get_discord_linked_player_name(db_path, ctx.author.id)
+    if caller_name is None:
+        return "Your Discord account is not linked to a player. Use `champsplayer linkdiscord` first."
+
+    draft_name_keys = {player.name.casefold() for player in state.players}
+    if caller_name.casefold() not in draft_name_keys:
+        return "You are not part of the current draft lobby."
+
+    if caller_name in state.dodger_names:
+        return "Dodge already submitted for this draft."
+
+    state.dodger_names.add(caller_name)
+    remaining = int((timedelta(seconds=DODGE_WINDOW_SECONDS) - elapsed).total_seconds())
+    return f"Dodge submitted for `{caller_name}`. Window closes in `{_format_seconds(remaining)}`."

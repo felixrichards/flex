@@ -52,3 +52,42 @@
   - username/name ELO query behavior
 - Testing workflow convention:
   - Default unit test runs should exclude scoreboard parser resource tests unless parser code is being changed.
+- Added dodge draft state machine in `champs/draft.py`:
+  - channel-scoped draft cooldown (`DRAFT_WINDOW_SECONDS=300`)
+  - channel-scoped dodge window (`DODGE_WINDOW_SECONDS=60`)
+  - auto-close behavior, CP penalties, and auto-redraft after dodge windows
+  - no-penalty branch when dodgers exceed threshold (`>5`)
+- Added bot dodge command surface:
+  - prefix `champsdodge` with command-message deletion + DM feedback
+  - slash `/champsdodge` with ephemeral response
+  - slash tree sync on bot ready
+- Added manual admin dodge command in `champs/forcedodge.py`:
+  - `champsforcedodge <player> [dodges]`
+  - admin-gated (`priv >= 2`)
+  - positive applies scaled CP dodge penalties, negative undoes recent dodge penalties exactly
+- Added player privilege model and schema upgrades:
+  - `players.privilege` (default `0`)
+  - `players.custom_points` (default from rating for existing rows)
+  - `players.dodges` (default `0`)
+  - new `player_dodge_penalties` table for exact undo history
+- Added `Privilege` enum + constants in `champs/constants.py` and integrated privilege checks in player/admin flows.
+- Added superadmin-only promotion flow:
+  - `champsplayer admin <player>`
+- Hardened Discord linkage remapping in `champs/player.py`:
+  - non-admin callers cannot remap an already-linked Discord ID to a different player
+- Refactored ELO display formatting via shared `champs/elo_table.py`:
+  - compact no-border layout for Discord message length constraints
+  - columns include CP/E/W/L/D and optional scale `S`
+  - manual and bot outputs now share formatting logic
+- Extended DB API for dodge/privilege operations:
+  - `apply_dodge_penalty`, `undo_recent_dodge_penalties`
+  - `dodge_scale_for_player`
+  - `resolve_player_identifier`
+  - `get_discord_linked_player_name`
+  - `get_player_privilege`, `get_discord_user_privilege`, `set_player_privilege`
+- Added `manual_player.py` for privilege management from CLI.
+- Added/updated tests:
+  - new dodge DB tests (`tests/test_dodges.py`)
+  - draft cooldown/dodge submission coverage (`tests/test_draft.py`)
+  - admin/remap permission checks (`tests/test_match_commands.py`)
+  - non-parser suite passes after changes (`84 passed, 5 deselected`).

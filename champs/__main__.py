@@ -5,9 +5,10 @@ from discord.ext import commands
 from dotenv import load_dotenv
 
 from champs.db import db
-from champs.draft import handle_draft
+from champs.draft import handle_dodge, handle_draft
 from champs.elo import handle_elo
 from champs.fearless import handle_fearless
+from champs.forcedodge import handle_forcedodge
 from champs.get import handle_get
 from champs.help import handle_help
 from champs.match import handle_match, handle_on_message
@@ -57,6 +58,28 @@ async def draft(ctx, *args):
     await handle_draft(ctx, args, DB_PATH)
 
 
+# `champsdodge`
+# Submit a dodge for the active channel draft.
+@bot.command()
+async def dodge(ctx):
+    result = await handle_dodge(ctx, DB_PATH)
+    try:
+        await ctx.message.delete()
+    except Exception:
+        pass
+    try:
+        await ctx.author.send(result)
+    except Exception:
+        await ctx.send("Dodge processed. I couldn't DM you; check your DM settings.")
+
+
+# `champsforcedodge <player> [dodges]`
+# Admin command to apply or undo dodge penalties.
+@bot.command()
+async def forcedodge(ctx, *args):
+    await handle_forcedodge(ctx, args, DB_PATH)
+
+
 # `champsfearless [subcommand]`
 # Controls in-memory, channel-scoped fearless bans used by `champsget` main flow.
 @bot.command()
@@ -69,6 +92,23 @@ async def fearless(ctx, *args):
 @bot.command(name="help")
 async def help_command(ctx, *args):
     await handle_help(ctx, args)
+
+
+@bot.tree.command(name="dodge", description="Submit a dodge for the current channel draft.")
+async def slash_dodge(interaction: discord.Interaction):
+    class _SlashCtx:
+        def __init__(self, inter: discord.Interaction) -> None:
+            self.author = inter.user
+            self.channel = inter.channel
+
+    message = await handle_dodge(_SlashCtx(interaction), DB_PATH)
+    await interaction.response.send_message(message, ephemeral=True)
+
+
+@bot.event
+async def on_ready():
+    await bot.tree.sync()
+    print(f"Logged in as {bot.user} and synced slash commands.")
 
 
 # Handles replies to bot match messages for JSON correction updates,
