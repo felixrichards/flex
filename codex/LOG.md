@@ -91,3 +91,29 @@
   - draft cooldown/dodge submission coverage (`tests/test_draft.py`)
   - admin/remap permission checks (`tests/test_match_commands.py`)
   - non-parser suite passes after changes (`84 passed, 5 deselected`).
+- Added player privacy persistence + migration:
+  - `PlayerRecord.private` column (`INTEGER`, default `0`)
+  - schema upgrade path adds/backfills `players.private` on existing DBs
+  - recalculation/new-player creation paths preserve/initialize `private`
+- Extended DB ELO row model/query behavior:
+  - `EloRow` now carries `private` metadata
+  - public rank index is computed only across non-private players (no rank gaps)
+  - unfiltered ELO rows exclude private players
+- Added DB helpers:
+  - `toggle_player_private(db_path, identifier) -> (resolved_name, is_private)`
+  - `is_player_private(db_path, identifier) -> bool`
+  - exports updated in `champs/db/__init__.py`
+- Added `champsplayer private` subcommand in `champs/player.py`:
+  - usage/help text added
+  - non-superadmin callers must be linked and can only toggle their own player
+  - superadmins (`priv=3`) can toggle any player
+- Refined `champselo` privacy enforcement in `champs/elo.py`:
+  - filtered queries remove private rows for non-private callers
+  - if a filtered request resolves only to a private target, return privacy message
+  - callers linked to private players are blocked from `champselo` entirely
+- Updated shared table formatter:
+  - `format_elo_rows(..., include_rank=...)` support added for optional rank column rendering
+- Added/updated tests for privacy flows:
+  - `tests/test_elo_query.py` (private hiding + contiguous public ranks)
+  - `tests/test_elo_table_formatting.py` (privacy messaging, private-caller restrictions)
+  - `tests/test_match_commands.py` (`champsplayer private` usage/permission cases)

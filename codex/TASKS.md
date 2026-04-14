@@ -42,3 +42,13 @@
   - compact headers (`#`, `P`, `CP`, `E`, `W`, `L`, `D`)
   - optional `S` scaling column on filtered bot queries
   - shared table formatter reused by bot + manual tooling.
+- Added player privacy controls:
+  - persisted `players.private` flag in DB (+ schema backfill for existing rows)
+  - `champsplayer private <player_or_username>` toggle with permission rules:
+    - players can only toggle their own privacy
+    - superadmins can toggle privacy for anyone
+- Updated leaderboard/privacy behavior:
+  - unfiltered `champselo` excludes private players and keeps contiguous public ranks
+  - filtered `champselo` hides private targets from non-private callers
+  - single filtered private target returns a clear privacy message
+  - callers linked to private players are now blocked from `champselo` entirely
