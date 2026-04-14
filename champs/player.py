@@ -243,8 +243,23 @@ async def _handle_player_private(ctx, args, db_path: str) -> None:
         await ctx.send("Usage: `champsplayer private <caseinsensitive_player_or_casesensitive_username>`")
         return
 
+    resolved_name = await asyncio.to_thread(db.resolve_player_identifier_for_link, db_path, player_identifier)
+    if resolved_name is None:
+        await ctx.send(f"Could not resolve `{player_identifier}` to a known player.")
+        return
+
+    caller_privilege = await asyncio.to_thread(db.get_discord_user_privilege, db_path, ctx.author.id)
+    if caller_privilege < int(Privilege.SUPERADMIN):
+        caller_name = await asyncio.to_thread(db.get_discord_linked_player_name, db_path, ctx.author.id)
+        if caller_name is None:
+            await ctx.send("Your Discord account is not linked to a player. Use `champsplayer linkdiscord` first.")
+            return
+        if caller_name.casefold() != resolved_name.casefold():
+            await ctx.send("You can only toggle privacy for your own player record.")
+            return
+
     try:
-        resolved_name, is_private = await asyncio.to_thread(db.toggle_player_private, db_path, player_identifier)
+        _, is_private = await asyncio.to_thread(db.toggle_player_private, db_path, player_identifier)
     except Exception as exc:
         await ctx.send(f"Could not toggle privacy: {exc}")
         return

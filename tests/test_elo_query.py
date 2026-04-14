@@ -75,6 +75,7 @@ def test_get_elo_rows_hides_private_players_only_for_unfiltered_queries(tmp_path
 
     full = db.get_elo_rows(db_path)
     assert "Felix" not in [row.player for row in full]
+    assert [row.rank for row in full] == list(range(1, len(full) + 1))
 
     by_name = db.get_elo_rows(db_path, ["Felix"])
     assert [row.player for row in by_name] == ["Felix"]

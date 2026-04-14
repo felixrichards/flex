@@ -198,12 +198,44 @@ def test_handle_player_private_toggles_and_reports_state(monkeypatch) -> None:
         return func(*args, **kwargs)
 
     monkeypatch.setattr(player.asyncio, "to_thread", _fake_to_thread)
+    monkeypatch.setattr(player.db, "resolve_player_identifier_for_link", lambda *_args, **_kwargs: "Felix")
+    monkeypatch.setattr(player.db, "get_discord_user_privilege", lambda *_args, **_kwargs: 3)
     monkeypatch.setattr(player.db, "toggle_player_private", lambda *_args, **_kwargs: ("Felix", True))
 
     ctx = _FakeLinkCtx(author_id=1111)
     asyncio.run(player._handle_player_private(ctx, ["Felix"], "/tmp/test.db"))
 
     assert ctx.messages == ["`Felix` is now `hidden` in unfiltered `champselo` output."]
+
+
+def test_handle_player_private_blocks_non_superadmin_without_link(monkeypatch) -> None:
+    async def _fake_to_thread(func, *args, **kwargs):
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr(player.asyncio, "to_thread", _fake_to_thread)
+    monkeypatch.setattr(player.db, "resolve_player_identifier_for_link", lambda *_args, **_kwargs: "Felix")
+    monkeypatch.setattr(player.db, "get_discord_user_privilege", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(player.db, "get_discord_linked_player_name", lambda *_args, **_kwargs: None)
+
+    ctx = _FakeLinkCtx(author_id=1111)
+    asyncio.run(player._handle_player_private(ctx, ["Felix"], "/tmp/test.db"))
+
+    assert ctx.messages == ["Your Discord account is not linked to a player. Use `champsplayer linkdiscord` first."]
+
+
+def test_handle_player_private_blocks_non_superadmin_for_other_player(monkeypatch) -> None:
+    async def _fake_to_thread(func, *args, **kwargs):
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr(player.asyncio, "to_thread", _fake_to_thread)
+    monkeypatch.setattr(player.db, "resolve_player_identifier_for_link", lambda *_args, **_kwargs: "Felix")
+    monkeypatch.setattr(player.db, "get_discord_user_privilege", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(player.db, "get_discord_linked_player_name", lambda *_args, **_kwargs: "Wyn")
+
+    ctx = _FakeLinkCtx(author_id=1111)
+    asyncio.run(player._handle_player_private(ctx, ["Felix"], "/tmp/test.db"))
+
+    assert ctx.messages == ["You can only toggle privacy for your own player record."]
 
 
 def test_handle_on_message_corrected_payload_is_saved(monkeypatch) -> None:

@@ -45,6 +45,7 @@ class EloRow:
     losses: int
     dodges: int
     dodge_scale: float
+    private: bool = False
 
 
 @dataclass(frozen=True)
@@ -1047,6 +1048,19 @@ def set_player_privilege(db_path: str, identifier: str, privilege: int) -> str:
         return resolved_name
 
 
+def is_player_private(db_path: str, identifier: str) -> bool:
+    resolved_name = resolve_player_identifier(db_path, identifier)
+    if resolved_name is None:
+        return False
+
+    engine = _engine(db_path)
+    with Session(engine) as session:
+        player = session.get(PlayerRecord, resolved_name)
+        if player is None:
+            return False
+        return bool(player.private)
+
+
 def toggle_player_private(db_path: str, identifier: str) -> tuple[str, bool]:
     engine = _engine(db_path)
     with Session(engine) as session:
@@ -1143,9 +1157,17 @@ def get_elo_rows(db_path: str, identifiers: list[str] | None = None) -> list[Elo
         players,
         key=lambda player: (-int(player.custom_points), -int(player.rating), player.name.lower()),
     )
+    public_rank_by_name: dict[str, int] = {}
+    public_rank = 0
+    for player in ordered_players:
+        if int(player.private or 0):
+            continue
+        public_rank += 1
+        public_rank_by_name[player.name] = public_rank
+
     table: list[EloRow] = []
     games_by_player = _count_games_by_player(match_rows)
-    for idx, player in enumerate(ordered_players, start=1):
+    for player in ordered_players:
         if filtered_names is not None and player.name not in filtered_names:
             continue
         if filtered_names is None and int(player.private or 0):
@@ -1155,7 +1177,7 @@ def get_elo_rows(db_path: str, identifiers: list[str] | None = None) -> list[Elo
         dodge_scale = dodge_scale_for_player(int(player.dodges), games)
         table.append(
             EloRow(
-                rank=idx,
+                rank=public_rank_by_name.get(player.name, 0),
                 player=player.name,
                 cp=int(player.custom_points),
                 elo=int(player.rating),
@@ -1163,6 +1185,7 @@ def get_elo_rows(db_path: str, identifiers: list[str] | None = None) -> list[Elo
                 losses=losses,
                 dodges=int(player.dodges),
                 dodge_scale=dodge_scale,
+                private=bool(player.private),
             )
         )
     return table
