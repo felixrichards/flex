@@ -73,8 +73,10 @@ class DraftResult:
 @dataclass
 class DraftWindowState:
     created_at: datetime
-    players: list[DraftPlayer]
+    active_players: list[DraftPlayer]
+    player_pool: list[DraftPlayer]
     dodger_names: set[str]
+    draft_history_signatures: set[tuple]
     window_end_task: asyncio.Task | None = None
 
 
@@ -98,6 +100,12 @@ class _ResolverState:
 
 
 DRAFT_STATE_BY_CHANNEL: dict[int, DraftWindowState] = {}
+
+
+def _draft_signature(result: DraftResult) -> tuple:
+    blue = tuple((row.role, row.player.name.casefold()) for row in result.blue.assignments)
+    red = tuple((row.role, row.player.name.casefold()) for row in result.red.assignments)
+    return (blue, red)
 
 
 def _clean_token(token: str) -> str:
@@ -298,6 +306,7 @@ def _build_draft(
     *,
     randomize: bool = False,
     rng: random.Random | None = None,
+    forbidden_signatures: set[tuple] | None = None,
 ) -> DraftResult:
     if len(players) != len(ROLES) * 2:
         raise ValueError("Exactly 10 unique players are required.")
@@ -315,6 +324,7 @@ def _build_draft(
         assignment_cache[indices] = drafted
         return drafted
 
+    forbidden = forbidden_signatures or set()
     candidate_results: list[tuple[tuple[int, int, tuple[str, ...], tuple[str, ...]], DraftResult]] = []
     all_indices = tuple(range(len(indexed_players)))
     for blue_indices in itertools.combinations(all_indices, team_size):
@@ -336,21 +346,38 @@ def _build_draft(
         raise ValueError("Could not build balanced teams.")
 
     candidate_results.sort(key=lambda item: item[0])
+    non_forbidden = [(key, draft) for key, draft in candidate_results if _draft_signature(draft) not in forbidden]
     if not randomize:
+        if non_forbidden:
+            return non_forbidden[0][1]
         return candidate_results[0][1]
 
     rand = rng or random.Random()
     best_gap = candidate_results[0][0][0]
     best_penalty = min(key[1] for key, _ in candidate_results if key[0] == best_gap)
+    max_gap = max(key[0] for key, _ in candidate_results)
+    max_penalty = max(key[1] for key, _ in candidate_results)
 
-    pool = [
-        result
-        for key, result in candidate_results
-        if key[0] <= best_gap + RANDOM_GAP_SLACK and key[1] <= best_penalty + RANDOM_PENALTY_SLACK
-    ]
-    if not pool:
-        pool = [candidate_results[0][1]]
-    return rand.choice(pool)
+    gap_slack = RANDOM_GAP_SLACK
+    penalty_slack = RANDOM_PENALTY_SLACK
+    while gap_slack <= (max_gap - best_gap + RANDOM_GAP_SLACK) or penalty_slack <= (
+        max_penalty - best_penalty + RANDOM_PENALTY_SLACK
+    ):
+        pool = [
+            result
+            for key, result in candidate_results
+            if key[0] <= best_gap + gap_slack
+            and key[1] <= best_penalty + penalty_slack
+            and _draft_signature(result) not in forbidden
+        ]
+        if pool:
+            return rand.choice(pool)
+        gap_slack += RANDOM_GAP_SLACK
+        penalty_slack += RANDOM_PENALTY_SLACK
+
+    if non_forbidden:
+        return rand.choice([draft for _, draft in non_forbidden])
+    return rand.choice([draft for _, draft in candidate_results])
 
 
 def _fit_label(penalty: int) -> str:
@@ -439,10 +466,60 @@ def _format_seconds(seconds: int) -> str:
     return f"{mins:02d}:{secs:02d}"
 
 
-def _resolve_draft_players(ctx, args, db_path: str) -> tuple[list[DraftPlayer] | None, str | None]:
+def _select_redraft_players(
+    *,
+    active_players: list[DraftPlayer],
+    player_pool: list[DraftPlayer],
+    dodger_names: set[str],
+    rng: random.Random | None = None,
+) -> list[DraftPlayer]:
+    dodger_name_keys = {name.casefold() for name in dodger_names}
+    guaranteed = [player for player in active_players if player.name.casefold() not in dodger_name_keys]
+    guaranteed_keys = {player.name.casefold() for player in guaranteed}
+
+    required_players = len(ROLES) * 2
+    remaining = required_players - len(guaranteed)
+    if remaining <= 0:
+        return guaranteed[:required_players]
+
+    candidates: list[DraftPlayer] = []
+    seen_candidate_keys: set[str] = set()
+    for player in player_pool:
+        key = player.name.casefold()
+        if key in guaranteed_keys or key in seen_candidate_keys:
+            continue
+        candidates.append(player)
+        seen_candidate_keys.add(key)
+
+    if len(candidates) < remaining:
+        raise ValueError("Could not build redraft: insufficient replacement candidates.")
+
+    rand = rng or random.Random()
+    if len(candidates) == remaining:
+        picked = list(candidates)
+    else:
+        picked = rand.sample(candidates, remaining)
+
+    # Force a fresh lobby composition whenever alternatives exist.
+    # If there are bench players, prefer that at least one replacement is from bench.
+    active_key_set = {player.name.casefold() for player in active_players}
+    bench_candidates = [player for player in candidates if player.name.casefold() not in active_key_set]
+    picked_keys = {player.name.casefold() for player in picked}
+    if bench_candidates and not any(player.name.casefold() in picked_keys for player in bench_candidates):
+        chosen_bench = rand.choice(bench_candidates)
+        picked[0] = chosen_bench
+
+    return [*guaranteed, *picked]
+
+
+def _resolve_draft_players(
+    ctx,
+    args,
+    db_path: str,
+) -> tuple[list[DraftPlayer] | None, list[DraftPlayer] | None, str | None]:
     explicit, added, removed, wants_help = _parse_draft_args(args)
     if wants_help:
-        return None, HELP
+        return None, None, HELP
 
     resolver_state = _build_resolver_state(db_path)
 
@@ -466,7 +543,7 @@ def _resolve_draft_players(ctx, args, db_path: str) -> tuple[list[DraftPlayer] |
     overlap = sorted(added_name_keys & removed_name_keys)
     if overlap:
         overlap_names = ", ".join(resolver_state.canonical_name_by_casefold.get(name, name) for name in overlap)
-        return None, f"Conflicting draft modifiers: player(s) included and excluded: {overlap_names}"
+        return None, None, f"Conflicting draft modifiers: player(s) included and excluded: {overlap_names}"
 
     unknown_usernames: list[str] = []
     missing_roles_by_name: dict[str, MappingRule] = {}
@@ -481,7 +558,7 @@ def _resolve_draft_players(ctx, args, db_path: str) -> tuple[list[DraftPlayer] |
     missing_roles = list(missing_roles_by_name.values())
 
     if unknown_usernames or missing_roles:
-        return None, _format_missing_setup_message(unknown_usernames, missing_roles)
+        return None, None, _format_missing_setup_message(unknown_usernames, missing_roles)
 
     players = _resolve_players(merged_tokens, resolver_state)
     players = [player for player in players if player.name.casefold() not in removed_name_keys]
@@ -489,10 +566,11 @@ def _resolve_draft_players(ctx, args, db_path: str) -> tuple[list[DraftPlayer] |
     required_players = len(ROLES) * 2
     if len(players) < required_players:
         source_hint = "voice channels (+/- overrides)" if not explicit else "explicit list (+/- overrides)"
-        return None, (
+        return None, None, (
             f"Need exactly 10 unique players; resolved {len(players)} from {source_hint}.\n"
             "Use `champsdraft help` for syntax."
         )
+    player_pool = list(players)
     sampled_from: int | None = None
     if len(players) > required_players:
         sampled_from = len(players)
@@ -501,7 +579,7 @@ def _resolve_draft_players(ctx, args, db_path: str) -> tuple[list[DraftPlayer] |
     warning = None
     if sampled_from is not None:
         warning = f"More than 10 players available ({sampled_from}). Randomly selected 10 for this draft."
-    return players, warning
+    return players, player_pool, warning
 
 
 async def _finalize_dodge_window(channel_id: int, ctx, db_path: str) -> None:
@@ -519,11 +597,22 @@ async def _finalize_dodge_window(channel_id: int, ctx, db_path: str) -> None:
 
     if len(dodger_names) > DODGE_MAX_NO_PENALTY:
         state.window_end_task = None
+        next_players = _select_redraft_players(
+            active_players=state.active_players,
+            player_pool=state.player_pool,
+            dodger_names=state.dodger_names,
+        )
         await ctx.send(
             f"Dodge window closed: {len(dodger_names)} dodges. No CP penalty applied (threshold: >{DODGE_MAX_NO_PENALTY}). "
             "Posting a new draft."
         )
-        await _post_new_draft(ctx, db_path, players=state.players)
+        await _post_new_draft(
+            ctx,
+            db_path,
+            players=next_players,
+            player_pool=state.player_pool,
+            previous_signatures=state.draft_history_signatures,
+        )
         return
 
     base_penalty = DODGE_PENALTY / float(len(dodger_names))
@@ -539,16 +628,42 @@ async def _finalize_dodge_window(channel_id: int, ctx, db_path: str) -> None:
         applied_parts.append(f"{name} -{penalty} CP")
 
     state.window_end_task = None
+    next_players = _select_redraft_players(
+        active_players=state.active_players,
+        player_pool=state.player_pool,
+        dodger_names=state.dodger_names,
+    )
     await ctx.send(
         "Dodge window closed. Penalties applied: "
         + ", ".join(applied_parts)
         + ". Posting a new draft."
     )
-    await _post_new_draft(ctx, db_path, players=state.players)
+    await _post_new_draft(
+        ctx,
+        db_path,
+        players=next_players,
+        player_pool=state.player_pool,
+        previous_signatures=state.draft_history_signatures,
+    )
 
 
-async def _open_dodge_window(channel_id: int, ctx, db_path: str, players: list[DraftPlayer]) -> None:
-    state = DraftWindowState(created_at=_utc_now(), players=list(players), dodger_names=set(), window_end_task=None)
+async def _open_dodge_window(
+    channel_id: int,
+    ctx,
+    db_path: str,
+    *,
+    active_players: list[DraftPlayer],
+    player_pool: list[DraftPlayer],
+    draft_history_signatures: set[tuple],
+) -> None:
+    state = DraftWindowState(
+        created_at=_utc_now(),
+        active_players=list(active_players),
+        player_pool=list(player_pool),
+        dodger_names=set(),
+        draft_history_signatures=set(draft_history_signatures),
+        window_end_task=None,
+    )
     DRAFT_STATE_BY_CHANNEL[channel_id] = state
 
     async def _runner() -> None:
@@ -567,18 +682,35 @@ def _clear_channel_draft_state(channel_id: int) -> None:
     DRAFT_STATE_BY_CHANNEL.pop(channel_id, None)
 
 
-async def _post_new_draft(ctx, db_path: str, *, players: list[DraftPlayer], prefix_message: str | None = None) -> None:
+async def _post_new_draft(
+    ctx,
+    db_path: str,
+    *,
+    players: list[DraftPlayer],
+    player_pool: list[DraftPlayer],
+    previous_signatures: set[tuple] | None = None,
+    prefix_message: str | None = None,
+) -> None:
     channel_id = getattr(getattr(ctx, "channel", None), "id", 0)
+    seen_signatures = set(previous_signatures or set())
     try:
-        result = _build_draft(players, randomize=True)
+        result = _build_draft(players, randomize=True, forbidden_signatures=seen_signatures)
     except ValueError as exc:
         await ctx.send(str(exc))
         return
+    seen_signatures.add(_draft_signature(result))
     message = _format_draft_message(result) + "\n" + f"Dodge window: `{DODGE_WINDOW_SECONDS}s`. Use `/dodge` to dodge: 10 CP penalty shared between all dodgers."
     if prefix_message:
         message = prefix_message + "\n" + message
     await ctx.send(message)
-    await _open_dodge_window(channel_id, ctx, db_path, players)
+    await _open_dodge_window(
+        channel_id,
+        ctx,
+        db_path,
+        active_players=players,
+        player_pool=player_pool,
+        draft_history_signatures=seen_signatures,
+    )
 
 
 async def handle_draft(ctx, args, db_path: str) -> None:
@@ -599,11 +731,18 @@ async def handle_draft(ctx, args, db_path: str) -> None:
                 return
             _clear_channel_draft_state(channel_id)
 
-    players, result_message = _resolve_draft_players(ctx, args, db_path)
+    players, player_pool, result_message = _resolve_draft_players(ctx, args, db_path)
     if players is None:
         await ctx.send(result_message or HELP)
         return
-    await _post_new_draft(ctx, db_path, players=players, prefix_message=result_message)
+    assert player_pool is not None
+    await _post_new_draft(
+        ctx,
+        db_path,
+        players=players,
+        player_pool=player_pool,
+        prefix_message=result_message,
+    )
 
 
 async def handle_dodge(ctx, db_path: str) -> str:
@@ -621,7 +760,7 @@ async def handle_dodge(ctx, db_path: str) -> str:
     if caller_name is None:
         return "Your Discord account is not linked to a player. Use `champsplayer linkdiscord` first."
 
-    draft_name_keys = {player.name.casefold() for player in state.players}
+    draft_name_keys = {player.name.casefold() for player in state.active_players}
     if caller_name.casefold() not in draft_name_keys:
         return "You are not part of the current draft lobby."
 

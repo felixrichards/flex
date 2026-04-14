@@ -7,6 +7,8 @@ from champs.db import db
 from champs.draft import (
     DRAFT_STATE_BY_CHANNEL,
     DraftPlayer,
+    _draft_signature,
+    _select_redraft_players,
     _best_team_assignment,
     _build_draft,
     _parse_draft_args,
@@ -110,6 +112,32 @@ def test_build_draft_randomized_mode_is_seed_reproducible() -> None:
 
     assert blue_one == blue_two
     assert red_one == red_two
+
+
+def test_build_draft_can_avoid_forbidden_signature_when_alternatives_exist() -> None:
+    players = [
+        DraftPlayer(name="A", elo=1200, primary_role="TOP", secondary_role=None),
+        DraftPlayer(name="B", elo=1180, primary_role="JUNGLE", secondary_role=None),
+        DraftPlayer(name="C", elo=1160, primary_role="MID", secondary_role=None),
+        DraftPlayer(name="D", elo=1140, primary_role="BOT", secondary_role=None),
+        DraftPlayer(name="E", elo=1120, primary_role="SUPP", secondary_role=None),
+        DraftPlayer(name="F", elo=1100, primary_role="TOP", secondary_role=None),
+        DraftPlayer(name="G", elo=1080, primary_role="JUNGLE", secondary_role=None),
+        DraftPlayer(name="H", elo=1060, primary_role="MID", secondary_role=None),
+        DraftPlayer(name="I", elo=1040, primary_role="BOT", secondary_role=None),
+        DraftPlayer(name="J", elo=1020, primary_role="SUPP", secondary_role=None),
+    ]
+
+    first = _build_draft(players, randomize=True, rng=random.Random(42))
+    first_signature = _draft_signature(first)
+    second = _build_draft(
+        players,
+        randomize=True,
+        rng=random.Random(42),
+        forbidden_signatures={first_signature},
+    )
+
+    assert _draft_signature(second) != first_signature
 
 
 class _FakeCtx:
@@ -329,6 +357,55 @@ def test_handle_draft_randomly_samples_when_more_than_ten_players(tmp_path) -> N
     assert "More than 10 players available (11)" in ctx.messages[0]
     assert "Blue Team" in ctx.messages[0]
     assert "Red Team" in ctx.messages[0]
+
+
+def test_select_redraft_players_keeps_non_dodgers_and_uses_bench_pool() -> None:
+    active_players = [
+        DraftPlayer(name=f"A{i}", elo=1000 + i, primary_role="TOP", secondary_role="JUNGLE")
+        for i in range(1, 11)
+    ]
+    bench_players = [
+        DraftPlayer(name=f"B{i}", elo=1100 + i, primary_role="MID", secondary_role="BOT")
+        for i in range(1, 4)
+    ]
+    player_pool = [*active_players, *bench_players]
+    dodgers = {"A1", "A2"}
+
+    redraft = _select_redraft_players(
+        active_players=active_players,
+        player_pool=player_pool,
+        dodger_names=dodgers,
+        rng=random.Random(7),
+    )
+
+    assert len(redraft) == 10
+    redraft_names = {row.name for row in redraft}
+    # Non-dodgers are guaranteed.
+    for i in range(3, 11):
+        assert f"A{i}" in redraft_names
+    # With bench available, at least one bench player replaces a dodger.
+    assert any(name.startswith("B") for name in redraft_names)
+
+
+def test_select_redraft_players_falls_back_to_dodgers_when_no_bench() -> None:
+    active_players = [
+        DraftPlayer(name=f"A{i}", elo=1000 + i, primary_role="TOP", secondary_role="JUNGLE")
+        for i in range(1, 11)
+    ]
+    player_pool = list(active_players)
+    dodgers = {"A1", "A2"}
+
+    redraft = _select_redraft_players(
+        active_players=active_players,
+        player_pool=player_pool,
+        dodger_names=dodgers,
+        rng=random.Random(11),
+    )
+
+    assert len(redraft) == 10
+    redraft_names = {row.name for row in redraft}
+    for i in range(1, 11):
+        assert f"A{i}" in redraft_names
 
 
 def test_handle_draft_rejects_with_remaining_cooldown(tmp_path) -> None:
