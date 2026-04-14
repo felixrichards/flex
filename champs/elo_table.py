@@ -18,9 +18,9 @@ def format_elo_rows(
     player_header = "Player"
     cp_header = "CP"
     elo_header = "ELO"
-    wins_header = "W" if short_headers else "Wins"
-    losses_header = "L" if short_headers else "Losses"
-    dodges_header = "D" if short_headers else "Dodges"
+    wins_header = "Win"
+    losses_header = "Loss"
+    dodges_header = "Dodge"
     scale_header = "S" if short_headers else "Penalty scale"
 
     rank_header = "#" if short_headers else "Rank"
@@ -49,7 +49,8 @@ def format_elo_rows(
     if include_scale:
         header += f" {scale_header.rjust(scale_width)}"
 
-    lines = [header]
+    separator = "-" * len(header)
+    lines = [header, separator]
     for idx, row in enumerate(rows):
         line = f"{row.player.ljust(player_width)} {str(row.cp).rjust(cp_width)} {str(row.wins).rjust(wins_width)} {str(row.losses).rjust(losses_width)} {str(row.dodges).rjust(dodges_width)}"
         if include_rank:

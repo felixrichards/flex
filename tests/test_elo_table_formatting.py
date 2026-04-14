@@ -28,9 +28,10 @@ def test_champselo_full_table_uses_short_headers_and_hides_elo(monkeypatch) -> N
     text = ctx.messages[0]
     assert "# P" in text
     assert "CP" in text
-    assert " W " in text
-    assert " L " in text
-    assert " D" in text
+    assert "Win" in text
+    assert "Loss" in text
+    assert "Dodge" in text
+    assert "\n-" in text
     assert "ELO" not in text
 
 
@@ -49,9 +50,10 @@ def test_champselo_filtered_table_uses_standard_headers_and_hides_elo(monkeypatc
     text = ctx.messages[0]
     assert "Rank" in text
     assert "Player" in text
-    assert "Wins" in text
-    assert "Losses" in text
-    assert "Dodges" in text
+    assert "Win" in text
+    assert "Loss" in text
+    assert "Dodge" in text
+    assert "\n-" in text
     assert "scale" in text
     assert "ELO" not in text
 
