@@ -59,6 +59,29 @@ def test_best_team_assignment_prefers_secondary_over_offrole() -> None:
     assert penalty_by_player["TopJgl"] == 20
 
 
+def test_best_team_assignment_randomized_tie_break_allows_both_equal_role_swaps() -> None:
+    team = (
+        DraftPlayer(name="Andreas", elo=1100, primary_role="SUPP", secondary_role="TOP"),
+        DraftPlayer(name="Sean", elo=1100, primary_role="SUPP", secondary_role="TOP"),
+        DraftPlayer(name="JglMain", elo=1100, primary_role="JUNGLE", secondary_role="MID"),
+        DraftPlayer(name="MidMain", elo=1100, primary_role="MID", secondary_role="BOT"),
+        DraftPlayer(name="BotMain", elo=1100, primary_role="BOT", secondary_role="JUNGLE"),
+    )
+
+    seen_andreas_top = False
+    seen_sean_top = False
+    for seed in range(40):
+        drafted = _best_team_assignment(team, randomize_ties=True, rng=random.Random(seed))
+        role_by_player = {row.player.name: row.role for row in drafted.assignments}
+        seen_andreas_top = seen_andreas_top or role_by_player["Andreas"] == "TOP"
+        seen_sean_top = seen_sean_top or role_by_player["Sean"] == "TOP"
+        if seen_andreas_top and seen_sean_top:
+            break
+
+    assert seen_andreas_top
+    assert seen_sean_top
+
+
 def test_build_draft_balances_teams_and_assigns_unique_roles() -> None:
     players = [
         DraftPlayer(name="A", elo=1200, primary_role="TOP", secondary_role=None),

@@ -268,9 +268,15 @@ def _role_penalty(player: DraftPlayer, role: str) -> int:
     return OFF_ROLE_PENALTY
 
 
-def _best_team_assignment(players: tuple[DraftPlayer, ...]) -> TeamDraft:
+def _best_team_assignment(
+    players: tuple[DraftPlayer, ...],
+    *,
+    randomize_ties: bool = False,
+    rng: random.Random | None = None,
+) -> TeamDraft:
     best: TeamDraft | None = None
     best_key = None
+    tied_best: list[TeamDraft] = []
     for roles in itertools.permutations(ROLES, len(players)):
         assignments: list[TeamAssignment] = []
         raw_total = 0
@@ -300,20 +306,26 @@ def _best_team_assignment(players: tuple[DraftPlayer, ...]) -> TeamDraft:
         key = (
             total_penalty,
             -adjusted_total,
-            tuple(row.player.name.casefold() for row in ordered_assignments),
+        )
+        candidate = TeamDraft(
+            assignments=ordered_assignments,
+            raw_total_elo=raw_total,
+            adjusted_total_elo=adjusted_total,
+            total_penalty=total_penalty,
+            secondary_penalty_total=secondary_penalty_total,
+            off_role_penalty_total=off_role_penalty_total,
         )
         if best is None or key < best_key:
-            best = TeamDraft(
-                assignments=ordered_assignments,
-                raw_total_elo=raw_total,
-                adjusted_total_elo=adjusted_total,
-                total_penalty=total_penalty,
-                secondary_penalty_total=secondary_penalty_total,
-                off_role_penalty_total=off_role_penalty_total,
-            )
+            best = candidate
+            tied_best = [candidate]
             best_key = key
+        elif key == best_key:
+            tied_best.append(candidate)
     if best is None:
         raise ValueError("Could not assign team roles.")
+    if randomize_ties and len(tied_best) > 1:
+        rand = rng or random.Random()
+        return rand.choice(tied_best)
     return best
 
 
@@ -336,7 +348,7 @@ def _build_draft(
         if cached is not None:
             return cached
         team_players = tuple(indexed_players[i] for i in indices)
-        drafted = _best_team_assignment(team_players)
+        drafted = _best_team_assignment(team_players, randomize_ties=randomize, rng=rng)
         assignment_cache[indices] = drafted
         return drafted
 
