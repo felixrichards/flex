@@ -1,6 +1,6 @@
 import random
 
-from ..myresources import CHAMPS_WITH_ROLE_DATA
+from ..myresources import CHAMPS_BY_ROLE
 
 
 TOP = "TOP"
@@ -10,13 +10,7 @@ BOT = "BOT"
 SUPP = "SUPP"
 ROLES = TOP, JUNGLE, MID, BOT, SUPP
 
-champs_by_role = {role: [] for role in ROLES}
-
-for champ_data in CHAMPS_WITH_ROLE_DATA:
-    champ, parsed_roles = champ_data.split("\t")[0], champ_data.split("\t")[1:-1]
-    for parsed_role, ROLE in zip(parsed_roles, ROLES):
-        if parsed_role:
-            champs_by_role[ROLE].append(champ)
+champs_by_role = {c: r.copy() for c, r in CHAMPS_BY_ROLE.items()}
             
 
 all_champs = []

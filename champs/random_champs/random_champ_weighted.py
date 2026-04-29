@@ -33,24 +33,15 @@ def _champ_to_champ_id(champ):
 
 def get_random_champs_by_role_weighted(N, fearless_bans=[]):
     ceiled_N = math.ceil(N / 5) * 5
-    champs_by_role = {role: [] for role in constants.ROLES}
-    champs_by_occurence = {}
     inverse_champs_by_occurence = {}
 
-    for champ_data in myresources.CHAMPS_WITH_ROLE_DATA:
-        champ, parsed_roles = champ_data.split("\t")[0], champ_data.split("\t")[1:-1]
-        champs_by_occurence[champ] = 0
-        for parsed_role, ROLE in zip(parsed_roles, constants.ROLES):
-            if parsed_role:
-                champs_by_role[ROLE].append(champ)
-                champs_by_occurence[champ] += 1
-        inverse_champs_by_occurence[champ] = round(1 / champs_by_occurence[champ] * 60)
-
+    for champ, roles in myresources.ROLES_BY_CHAMP.items():
+        inverse_champs_by_occurence[champ] = round(1 / len(roles) * 60)
 
     selected_champs_by_role = {role: [] for role in constants.ROLES}
     all_picked_champs = []
     for role in constants.ROLES:
-        weighted_champs = sum([[champ] * inverse_champs_by_occurence[champ] for champ in champs_by_role[role]], start=[])
+        weighted_champs = sum([[champ] * inverse_champs_by_occurence[champ] for champ in myresources.CHAMPS_BY_ROLE[role]], start=[])
         random.shuffle(weighted_champs)
         i = 0
         while i < ceiled_N // 5:

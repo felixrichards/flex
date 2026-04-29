@@ -61,3 +61,8 @@
   - safe fallback path if guardrail filtering produces an empty pool
 - Added draft debug output to make tuning easier:
   - draft message now includes selected role metric and adjusted total gap
+- Fixed draft role-setup validation to be player-centric (resolved name) instead of username-row-centric:
+  - prevents false "missing roles" failures when a player has multiple usernames and only one alias carries the latest role row
+- Added self-service role command:
+  - `champsrole <mainrole> [<secondaryrole>]`
+  - caller must be Discord-linked; roles are updated for the linked player identity

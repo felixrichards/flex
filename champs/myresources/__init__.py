@@ -23,11 +23,6 @@ with open(os.path.join(RESOURCE_DIR, CHAMP_DATA_DB_FILENAME), "r") as f:
 _champions = _champ_data_db["champions"]
 _role_order = ["TOP", "JUNGLE", "MID", "BOT", "SUPP"]
 
-CHAMPS_WITH_ROLE_DATA = []
-for champion in _champions:
-    flags = [role if role in champion["roles"] else "" for role in _role_order]
-    CHAMPS_WITH_ROLE_DATA.append("\t".join([champion["name"], *flags, ""]))
-
 ROLES_BY_CHAMP = {champion["name"]: champion["roles"] for champion in _champions}
 
 CHAMPS_BY_ROLE = {}

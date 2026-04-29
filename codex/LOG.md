@@ -130,3 +130,28 @@
   - message now includes debug line with selected `role metric` and `adjusted gap`
 - Verified draft behavior with existing suite:
   - `poetry run pytest -q tests/test_draft.py` (`17 passed`)
+- Fixed draft role validation mismatch across username aliases:
+  - draft setup checks now resolve each token to canonical player identity first, then validate missing roles from player-level role preferences
+  - this avoids rejecting drafts when one alias lacks role rows but another alias for the same player has roles set
+- Added player-level role setter in DB API:
+  - `set_player_roles(db_path, identifier, primary_role, secondary_role=None)`
+  - resolves identifier -> canonical player, clears prior role rows for that player, writes fresh role row
+- Added new command surface for self-managed roles:
+  - `champsrole <mainrole> [<secondaryrole>]` in `champs/role.py`
+  - command requires caller Discord link and updates roles for caller-linked player
+  - wired into bot routing and `champshelp`
+- Added/updated tests:
+  - `tests/test_draft.py`: regression coverage for multi-username same-player role validation path
+  - `tests/test_role_commands.py`: new command coverage (linked/unlinked behavior)
+  - `tests/test_help_commands.py`: help entry for `role`
+- Validation run:
+  - `poetry run pytest -q tests/test_draft.py tests/test_match_commands.py tests/test_help_commands.py tests/test_player_name_map.py tests/test_role_commands.py`
+  - result: `55 passed, 1 warning`
+- Refactored champion resource loading in `champs/myresources/__init__.py` to use unified YAML source (`champ_data_db.yaml`) for random champion selection/filtering metadata.
+- Preserved existing exported variable contracts to avoid downstream code changes:
+  - `CHAMPS_WITH_ROLE_DATA` remains tab-delimited with legacy trailing-field shape
+  - `ROLES_BY_CHAMP`, `CHAMPS_BY_ROLE`, `CHAMPS_BY_DAMAGE_TYPE`, `CHAMPS`, `CHAMPS_BY_CLASS`, `CHAMPS_BY_GENDER`, `CHAMPS_BY_LGBT`, `CHAMPS_BY_COMPLEXION` retain prior intent/types
+  - `PLAYER_TO_NAME`, `CHAMPS_PLAYERS_MANIFEST`, and image loading flow unchanged
+- Validation run:
+  - `poetry run pytest -q tests/test_fearless.py tests/test_fearless_integration.py` (`12 passed`)
+  - import sanity check via `poetry run python` confirmed resource module loads with expected champion counts
