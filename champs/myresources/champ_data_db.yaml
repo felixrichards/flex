@@ -1,0 +1,1935 @@
+champions:
+  - name: Aatrox
+    complexion: 0
+    classes:
+      - Juggernaut
+      - Fighter
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - JUNGLE
+  - name: Ahri
+    complexion: 1
+    classes:
+      - Burst
+      - Mage
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Akali
+    complexion: 1
+    classes:
+      - Assassin
+      - Slayer
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - MID
+  - name: Akshan
+    complexion: 2
+    classes:
+      - Assassin
+      - Slayer
+      - Marksman
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Alistar
+    complexion: 0
+    classes:
+      - Vanguard
+      - Tank
+    damage:
+      - AP
+      - AD
+      - Hybrid
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Ambessa
+    complexion: 3
+    classes:
+      - Burst
+      - Fighter
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+      - MID
+  - name: Amumu
+    complexion: 0
+    classes:
+      - Vanguard
+      - Tank
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Anivia
+    complexion: 0
+    classes:
+      - Mage
+      - Battlemage
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Annie
+    complexion: 1
+    classes:
+      - Burst
+      - Mage
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Aphelios
+    complexion: 1
+    classes:
+      - Marksman
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
+  - name: Ashe
+    complexion: 1
+    classes:
+      - Marksman
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
+  - name: Aurelion Sol
+    complexion: 0
+    classes:
+      - Mage
+      - Battlemage
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Aurora
+    complexion: 1
+    classes:
+      - Mage
+      - Assassin
+      - Slayer
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - MID
+  - name: Azir
+    complexion: 0
+    classes:
+      - Specialist
+      - Mage
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Bard
+    complexion: 0
+    classes:
+      - Catcher
+      - Controller
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Bel'Veth
+    complexion: 1
+    classes:
+      - Slayer
+      - Skirmisher
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Blitzcrank
+    complexion: 0
+    classes:
+      - Catcher
+      - Controller
+    damage:
+      - AP
+    gender: OTHER
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Brand
+    complexion: 0
+    classes:
+      - Burst
+      - Mage
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+      - MID
+      - SUPP
+  - name: Braum
+    complexion: 1
+    classes:
+      - Tank
+      - Warden
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Briar
+    complexion: 1
+    classes:
+      - Fighter
+      - Diver
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Caitlyn
+    complexion: 1
+    classes:
+      - Marksman
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: LGBT
+    roles:
+      - BOT
+  - name: Camille
+    complexion: 1
+    classes:
+      - Fighter
+      - Diver
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Cassiopeia
+    complexion: 1
+    classes:
+      - Mage
+      - Battlemage
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Cho'Gath
+    complexion: 0
+    classes:
+      - Specialist
+    damage:
+      - AP
+    gender: OTHER
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Corki
+    complexion: 1
+    classes:
+      - Marksman
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+      - BOT
+  - name: Darius
+    complexion: 1
+    classes:
+      - Juggernaut
+      - Fighter
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Diana
+    complexion: 1
+    classes:
+      - Fighter
+      - Assassin
+      - Slayer
+      - Diver
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: LGBT
+    roles:
+      - JUNGLE
+      - MID
+  - name: Dr. Mundo
+    complexion: 0
+    classes:
+      - Juggernaut
+      - Fighter
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - JUNGLE
+  - name: Draven
+    complexion: 1
+    classes:
+      - Marksman
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
+  - name: Ekko
+    complexion: 3
+    classes:
+      - Assassin
+      - Slayer
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+      - MID
+  - name: Elise
+    complexion: 1
+    classes:
+      - Fighter
+      - Diver
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Evelynn
+    complexion: 1
+    classes:
+      - Assassin
+      - Slayer
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Ezreal
+    complexion: 1
+    classes:
+      - Marksman
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
+  - name: Fiddlesticks
+    complexion: 0
+    classes:
+      - Specialist
+    damage:
+      - AP
+    gender: OTHER
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Fiora
+    complexion: 1
+    classes:
+      - Slayer
+      - Skirmisher
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Fizz
+    complexion: 0
+    classes:
+      - Assassin
+      - Slayer
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Galio
+    complexion: 0
+    classes:
+      - Tank
+      - Warden
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Gangplank
+    complexion: 1
+    classes:
+      - Specialist
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Garen
+    complexion: 1
+    classes:
+      - Juggernaut
+      - Fighter
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Gnar
+    complexion: 0
+    classes:
+      - Specialist
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Gragas
+    complexion: 1
+    classes:
+      - Vanguard
+      - Tank
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - JUNGLE
+      - MID
+  - name: Graves
+    complexion: 1
+    classes:
+      - Specialist
+    damage:
+      - AD
+    gender: MALE
+    lgbt: LGBT
+    roles:
+      - JUNGLE
+  - name: Gwen
+    complexion: 1
+    classes:
+      - Slayer
+      - Skirmisher
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Hecarim
+    complexion: 0
+    classes:
+      - Fighter
+      - Diver
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Heimerdinger
+    complexion: 1
+    classes:
+      - Specialist
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - MID
+  - name: Hwei
+    complexion: 1
+    classes:
+      - Mage
+      - Artillery
+    damage:
+      - AP
+    gender: MALE
+    lgbt: LGBT
+    roles:
+      - MID
+  - name: Illaoi
+    complexion: 3
+    classes:
+      - Juggernaut
+      - Fighter
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Irelia
+    complexion: 1
+    classes:
+      - Fighter
+      - Diver
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Ivern
+    complexion: 0
+    classes:
+      - Catcher
+      - Controller
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Janna
+    complexion: 1
+    classes:
+      - Controller
+      - Enchanter
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Jarvan IV
+    complexion: 1
+    classes:
+      - Fighter
+      - Diver
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Jax
+    complexion: 0
+    classes:
+      - Slayer
+      - Skirmisher
+    damage:
+      - AD
+      - AP
+      - HYBRID
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - JUNGLE
+  - name: Jayce
+    complexion: 1
+    classes:
+      - Mage
+      - Artillery
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Jhin
+    complexion: 1
+    classes:
+      - Marksman
+      - Catcher
+      - Controller
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
+  - name: Jinx
+    complexion: 1
+    classes:
+      - Marksman
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
+  - name: K'Sante
+    complexion: 3
+    classes:
+      - Slayer
+      - Tank
+      - Skirmisher
+      - Warden
+    damage:
+      - AD
+    gender: MALE
+    lgbt: LGBT
+    roles:
+      - TOP
+  - name: Kai'Sa
+    complexion: 1
+    classes:
+      - Marksman
+    damage:
+      - AD
+      - AP
+      - HYBRID
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
+  - name: Kalista
+    complexion: 0
+    classes:
+      - Marksman
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
+  - name: Karma
+    complexion: 2
+    classes:
+      - Burst
+      - Mage
+      - Controller
+      - Enchanter
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Karthus
+    complexion: 0
+    classes:
+      - Mage
+      - Battlemage
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Kassadin
+    complexion: 0
+    classes:
+      - Assassin
+      - Slayer
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Katarina
+    complexion: 1
+    classes:
+      - Assassin
+      - Slayer
+    damage:
+      - AD
+      - AP
+      - HYBRID
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Kayle
+    complexion: 1
+    classes:
+      - Specialist
+    damage:
+      - AD
+      - AP
+      - HYBRID
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Kayn
+    complexion: 1
+    classes:
+      - Slayer
+      - Skirmisher
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Kennen
+    complexion: 0
+    classes:
+      - Specialist
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Kha'Zix
+    complexion: 0
+    classes:
+      - Assassin
+      - Slayer
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Kindred
+    complexion: 0
+    classes:
+      - Marksman
+    damage:
+      - AD
+    gender: OTHER
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Kled
+    complexion: 0
+    classes:
+      - Slayer
+      - Skirmisher
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Kog'Maw
+    complexion: 0
+    classes:
+      - Marksman
+    damage:
+      - AD
+      - AP
+      - HYBRID
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
+  - name: LeBlanc
+    complexion: 1
+    classes:
+      - Burst
+      - Mage
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Lee Sin
+    complexion: 1
+    classes:
+      - Fighter
+      - Diver
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Leona
+    complexion: 1
+    classes:
+      - Vanguard
+      - Tank
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: LGBT
+    roles:
+      - SUPP
+  - name: Lillia
+    complexion: 0
+    classes:
+      - Slayer
+      - Skirmisher
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Lissandra
+    complexion: 0
+    classes:
+      - Burst
+      - Mage
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Lucian
+    complexion: 3
+    classes:
+      - Marksman
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
+  - name: Lulu
+    complexion: 0
+    classes:
+      - Controller
+      - Enchanter
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Lux
+    complexion: 1
+    classes:
+      - Burst
+      - Mage
+      - Artillery
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+      - SUPP
+  - name: Malphite
+    complexion: 0
+    classes:
+      - Vanguard
+      - Tank
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - JUNGLE
+  - name: Malzahar
+    complexion: 2
+    classes:
+      - Mage
+      - Battlemage
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Maokai
+    complexion: 0
+    classes:
+      - Vanguard
+      - Tank
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Master Yi
+    complexion: 1
+    classes:
+      - Slayer
+      - Skirmisher
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Mel
+    complexion: 3
+    classes:
+      - Burst
+      - Mage
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+      - AD
+      - SUPP
+  - name: Milio
+    complexion: 2
+    classes:
+      - Controller
+      - Enchanter
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Miss Fortune
+    complexion: 1
+    classes:
+      - Marksman
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
+  - name: Mordekaiser
+    complexion: 0
+    classes:
+      - Juggernaut
+      - Fighter
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Morgana
+    complexion: 1
+    classes:
+      - Catcher
+      - Controller
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Naafiri
+    complexion: 0
+    classes:
+      - Assassin
+      - Slayer
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+      - JUNGLE
+  - name: Nami
+    complexion: 0
+    classes:
+      - Controller
+      - Enchanter
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: LGBT
+    roles:
+      - SUPP
+  - name: Nasus
+    complexion: 0
+    classes:
+      - Juggernaut
+      - Fighter
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - JUNGLE
+  - name: Nautilus
+    complexion: 0
+    classes:
+      - Vanguard
+      - Tank
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Neeko
+    complexion: 1
+    classes:
+      - Burst
+      - Mage
+      - Catcher
+      - Controller
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: LGBT
+    roles:
+      - SUPP
+  - name: Nidalee
+    complexion: 2
+    classes:
+      - Specialist
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: LGBT
+    roles:
+      - JUNGLE
+  - name: Nilah
+    complexion: 2
+    classes:
+      - Slayer
+      - Skirmisher
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
+  - name: Nocturne
+    complexion: 0
+    classes:
+      - Assassin
+      - Slayer
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Nunu & Willump
+    complexion: 1
+    classes:
+      - Vanguard
+      - Tank
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Olaf
+    complexion: 1
+    classes:
+      - Fighter
+      - Diver
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Orianna
+    complexion: 0
+    classes:
+      - Burst
+      - Mage
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Ornn
+    complexion: 0
+    classes:
+      - Vanguard
+      - Tank
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Pantheon
+    complexion: 1
+    classes:
+      - Fighter
+      - Diver
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - JUNGLE
+      - SUPP
+  - name: Poppy
+    complexion: 1
+    classes:
+      - Tank
+      - Warden
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - SUPP
+  - name: Pyke
+    complexion: 3
+    classes:
+      - Assassin
+      - Slayer
+      - Catcher
+      - Controller
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Qiyana
+    complexion: 2
+    classes:
+      - Assassin
+      - Slayer
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+      - JUNGLE
+  - name: Quinn
+    complexion: 1
+    classes:
+      - Specialist
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Rakan
+    complexion: 1
+    classes:
+      - Catcher
+      - Controller
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Rammus
+    complexion: 0
+    classes:
+      - Vanguard
+      - Tank
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Rek'Sai
+    complexion: 0
+    classes:
+      - Fighter
+      - Diver
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Rell
+    complexion: 3
+    classes:
+      - Vanguard
+      - Tank
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: LGBT
+    roles:
+      - SUPP
+  - name: Renata Glasc
+    complexion: 1
+    classes:
+      - Controller
+      - Enchanter
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Renekton
+    complexion: 0
+    classes:
+      - Fighter
+      - Diver
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Rengar
+    complexion: 0
+    classes:
+      - Fighter
+      - Assassin
+      - Slayer
+      - Diver
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Riven
+    complexion: 1
+    classes:
+      - Slayer
+      - Skirmisher
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Rumble
+    complexion: 0
+    classes:
+      - Mage
+      - Battlemage
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Ryze
+    complexion: 0
+    classes:
+      - Mage
+      - Battlemage
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Samira
+    complexion: 2
+    classes:
+      - Marksman
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
+  - name: Sejuani
+    complexion: 1
+    classes:
+      - Vanguard
+      - Tank
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Senna
+    complexion: 3
+    classes:
+      - Marksman
+      - Controller
+      - Enchanter
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
+      - SUPP
+  - name: Seraphine
+    complexion: 1
+    classes:
+      - Burst
+      - Mage
+      - Controller
+      - Enchanter
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Sett
+    complexion: 1
+    classes:
+      - Juggernaut
+      - Fighter
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Shaco
+    complexion: 0
+    classes:
+      - Assassin
+      - Slayer
+    damage:
+      - AD
+      - AP
+      - HYBRID
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Shen
+    complexion: 1
+    classes:
+      - Tank
+      - Warden
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - JUNGLE
+  - name: Shyvana
+    complexion: 1
+    classes:
+      - Juggernaut
+      - Fighter
+    damage:
+      - AD
+      - AP
+      - HYBRID
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Singed
+    complexion: 1
+    classes:
+      - Specialist
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Sion
+    complexion: 0
+    classes:
+      - Vanguard
+      - Tank
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - MID
+  - name: Sivir
+    complexion: 1
+    classes:
+      - Marksman
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
+  - name: Skarner
+    complexion: 0
+    classes:
+      - Vanguard
+      - Tank
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Smolder
+    complexion: 0
+    classes:
+      - Marksman
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+      - BOT
+  - name: Sona
+    complexion: 1
+    classes:
+      - Controller
+      - Enchanter
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Soraka
+    complexion: 1
+    classes:
+      - Controller
+      - Enchanter
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Swain
+    complexion: 1
+    classes:
+      - Mage
+      - Battlemage
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+      - BOT
+      - SUPP
+  - name: Sylas
+    complexion: 1
+    classes:
+      - Burst
+      - Mage
+      - Slayer
+      - Skirmisher
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+      - MID
+  - name: Syndra
+    complexion: 1
+    classes:
+      - Burst
+      - Mage
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Tahm Kench
+    complexion: 0
+    classes:
+      - Tank
+      - Warden
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - SUPP
+  - name: Taliyah
+    complexion: 2
+    classes:
+      - Mage
+      - Battlemage
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Talon
+    complexion: 1
+    classes:
+      - Assassin
+      - Slayer
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+      - MID
+  - name: Taric
+    complexion: 1
+    classes:
+      - Tank
+      - Controller
+      - Warden
+      - Enchanter
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Teemo
+    complexion: 0
+    classes:
+      - Specialist
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Thresh
+    complexion: 0
+    classes:
+      - Catcher
+      - Controller
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Tristana
+    complexion: 1
+    classes:
+      - Marksman
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
+  - name: Trundle
+    complexion: 1
+    classes:
+      - Juggernaut
+      - Fighter
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - JUNGLE
+  - name: Tryndamere
+    complexion: 1
+    classes:
+      - Slayer
+      - Skirmisher
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Twisted Fate
+    complexion: 1
+    classes:
+      - Burst
+      - Mage
+    damage:
+      - AD
+      - AP
+      - HYBRID
+    gender: MALE
+    lgbt: LGBT
+    roles:
+      - MID
+  - name: Twitch
+    complexion: 0
+    classes:
+      - Marksman
+    damage:
+      - AD
+      - AP
+      - HYBRID
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
+  - name: Udyr
+    complexion: 1
+    classes:
+      - Juggernaut
+      - Fighter
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Urgot
+    complexion: 1
+    classes:
+      - Juggernaut
+      - Fighter
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Varus
+    complexion: 1
+    classes:
+      - Mage
+      - Marksman
+      - Artillery
+    damage:
+      - AD
+      - TOP
+    gender: MALE
+    lgbt: LGBT
+    roles:
+      - MID
+      - BOT
+  - name: Vayne
+    complexion: 1
+    classes:
+      - Marksman
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - BOT
+  - name: Veigar
+    complexion: 0
+    classes:
+      - Burst
+      - Mage
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+      - BOT
+  - name: Vel'Koz
+    complexion: 0
+    classes:
+      - Mage
+      - Artillery
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+      - SUPP
+  - name: Vex
+    complexion: 0
+    classes:
+      - Burst
+      - Mage
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Vi
+    complexion: 1
+    classes:
+      - Fighter
+      - Diver
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: LGBT
+    roles:
+      - JUNGLE
+  - name: Viego
+    complexion: 1
+    classes:
+      - Slayer
+      - Skirmisher
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Viktor
+    complexion: 1
+    classes:
+      - Mage
+      - Battlemage
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Vladimir
+    complexion: 1
+    classes:
+      - Mage
+      - Battlemage
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - MID
+  - name: Volibear
+    complexion: 0
+    classes:
+      - Juggernaut
+      - Fighter
+    damage:
+      - AD
+      - AP
+      - HYBRID
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - JUNGLE
+  - name: Warwick
+    complexion: 0
+    classes:
+      - Fighter
+      - Diver
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - JUNGLE
+  - name: Wukong
+    complexion: 0
+    classes:
+      - Fighter
+      - Diver
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Xayah
+    complexion: 1
+    classes:
+      - Marksman
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
+  - name: Xerath
+    complexion: 0
+    classes:
+      - Mage
+      - Artillery
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+      - SUPP
+  - name: Xin Zhao
+    complexion: 1
+    classes:
+      - Fighter
+      - Diver
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+  - name: Yasuo
+    complexion: 1
+    classes:
+      - Slayer
+      - Skirmisher
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - MID
+      - BOT
+  - name: Yone
+    complexion: 1
+    classes:
+      - Assassin
+      - Slayer
+      - Skirmisher
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - MID
+  - name: Yorick
+    complexion: 0
+    classes:
+      - Juggernaut
+      - Fighter
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+  - name: Yuumi
+    complexion: 0
+    classes:
+      - Controller
+      - Enchanter
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - SUPP
+  - name: Zac
+    complexion: 0
+    classes:
+      - Vanguard
+      - Tank
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
+      - JUNGLE
+  - name: Zed
+    complexion: 0
+    classes:
+      - Assassin
+      - Slayer
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+      - MID
+  - name: Zeri
+    complexion: 1
+    classes:
+      - Marksman
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
+  - name: Ziggs
+    complexion: 0
+    classes:
+      - Mage
+      - Artillery
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+      - BOT
+  - name: Zilean
+    complexion: 1
+    classes:
+      - Specialist
+    damage:
+      - AP
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+      - SUPP
+  - name: Zoe
+    complexion: 1
+    classes:
+      - Burst
+      - Mage
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - MID
+  - name: Zyra
+    complexion: 0
+    classes:
+      - Catcher
+      - Controller
+    damage:
+      - AP
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - JUNGLE
+      - SUPP
