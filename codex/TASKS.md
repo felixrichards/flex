@@ -52,3 +52,12 @@
   - filtered `champselo` hides private targets from non-private callers
   - single filtered private target returns a clear privacy message
   - callers linked to private players are now blocked from `champselo` entirely
+- Updated draft selection strategy to prioritize role satisfaction:
+  - replaced penalty-slack randomization with role-metric bucket sampling
+  - role metric scores drafts as `+1` secondary and `+2` off-role assignments
+  - metric buckets are accumulated until a target candidate count is reached, then sampled with lower-metric weighting
+- Added dynamic gap guardrails to role-priority sampling:
+  - per-metric adjusted-gap cap (`allowed_gap`) with min/max bounds and step scaling
+  - safe fallback path if guardrail filtering produces an empty pool
+- Added draft debug output to make tuning easier:
+  - draft message now includes selected role metric and adjusted total gap

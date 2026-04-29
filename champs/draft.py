@@ -21,7 +21,11 @@ ROLES: tuple[str, ...] = ("TOP", "JUNGLE", "MID", "BOT", "SUPP")
 SECONDARY_ROLE_PENALTY = 20
 OFF_ROLE_PENALTY = 40
 RANDOM_GAP_SLACK = 10
-RANDOM_PENALTY_SLACK = 20
+METRIC_BUCKET_TARGET_DRAFTS = 24
+METRIC_WEIGHT_DECAY = 0.5
+ROLE_PRIORITY_MAX_GAP = 60
+ROLE_PRIORITY_MIN_GAP = 10
+ROLE_PRIORITY_GAP_STEP = 5
 
 HELP = """`champsdraft` usage:
 
@@ -62,6 +66,8 @@ class TeamDraft:
     raw_total_elo: int
     adjusted_total_elo: int
     total_penalty: int
+    secondary_penalty_total: int
+    off_role_penalty_total: int
 
 
 @dataclass(frozen=True)
@@ -268,12 +274,18 @@ def _best_team_assignment(players: tuple[DraftPlayer, ...]) -> TeamDraft:
         raw_total = 0
         adjusted_total = 0
         total_penalty = 0
+        secondary_penalty_total = 0
+        off_role_penalty_total = 0
         for player, role in zip(players, roles):
             penalty = _role_penalty(player, role)
             adjusted = player.elo - penalty
             raw_total += player.elo
             adjusted_total += adjusted
             total_penalty += penalty
+            if penalty == SECONDARY_ROLE_PENALTY:
+                secondary_penalty_total += penalty
+            elif penalty == OFF_ROLE_PENALTY:
+                off_role_penalty_total += penalty
             assignments.append(
                 TeamAssignment(
                     role=role,
@@ -294,6 +306,8 @@ def _best_team_assignment(players: tuple[DraftPlayer, ...]) -> TeamDraft:
                 raw_total_elo=raw_total,
                 adjusted_total_elo=adjusted_total,
                 total_penalty=total_penalty,
+                secondary_penalty_total=secondary_penalty_total,
+                off_role_penalty_total=off_role_penalty_total,
             )
             best_key = key
     if best is None:
@@ -353,31 +367,53 @@ def _build_draft(
         return candidate_results[0][1]
 
     rand = rng or random.Random()
-    best_gap = candidate_results[0][0][0]
-    best_penalty = min(key[1] for key, _ in candidate_results if key[0] == best_gap)
-    max_gap = max(key[0] for key, _ in candidate_results)
-    max_penalty = max(key[1] for key, _ in candidate_results)
 
-    gap_slack = RANDOM_GAP_SLACK
-    penalty_slack = RANDOM_PENALTY_SLACK
-    while gap_slack <= (max_gap - best_gap + RANDOM_GAP_SLACK) or penalty_slack <= (
-        max_penalty - best_penalty + RANDOM_PENALTY_SLACK
-    ):
-        pool = [
-            result
-            for key, result in candidate_results
-            if key[0] <= best_gap + gap_slack
-            and key[1] <= best_penalty + penalty_slack
-            and _draft_signature(result) not in forbidden
-        ]
-        if pool:
-            return rand.choice(pool)
-        gap_slack += RANDOM_GAP_SLACK
-        penalty_slack += RANDOM_PENALTY_SLACK
+    source = non_forbidden if non_forbidden else candidate_results
+    by_metric: dict[int, list[tuple[tuple[int, int, tuple[str, ...], tuple[str, ...]], DraftResult]]] = {}
+    for key, draft in source:
+        metric = _role_metric_for_draft(draft)
+        by_metric.setdefault(metric, []).append((key, draft))
 
-    if non_forbidden:
-        return rand.choice([draft for _, draft in non_forbidden])
-    return rand.choice([draft for _, draft in candidate_results])
+    metrics = sorted(by_metric)
+    selected_metrics: list[int] = []
+    selected_count = 0
+    for metric in metrics:
+        selected_metrics.append(metric)
+        selected_count += len(by_metric[metric])
+        if selected_count >= METRIC_BUCKET_TARGET_DRAFTS:
+            break
+
+    if not selected_metrics:
+        # Defensive fallback; should be unreachable because `source` is non-empty.
+        return source[0][1]
+
+    kept_entries: list[tuple[tuple[int, int, tuple[str, ...], tuple[str, ...]], DraftResult, int, int]] = []
+    for rank, metric in enumerate(selected_metrics):
+        allowed_gap = max(ROLE_PRIORITY_MIN_GAP, ROLE_PRIORITY_MAX_GAP - (metric * ROLE_PRIORITY_GAP_STEP))
+        for key, draft in by_metric[metric]:
+            adjusted_gap = key[0]
+            if adjusted_gap <= allowed_gap:
+                kept_entries.append((key, draft, rank, metric))
+
+    if not kept_entries:
+        for rank, metric in enumerate(selected_metrics):
+            for key, draft in by_metric[metric]:
+                kept_entries.append((key, draft, rank, metric))
+
+    weighted_drafts: list[DraftResult] = []
+    weights: list[float] = []
+    for _, draft, rank, _ in kept_entries:
+        weighted_drafts.append(draft)
+        weights.append(METRIC_WEIGHT_DECAY**rank)
+
+    return rand.choices(weighted_drafts, weights=weights, k=1)[0]
+
+
+def _role_metric_for_draft(result: DraftResult) -> int:
+    # Role-priority metric: +1 per secondary assignment, +2 per off-role assignment.
+    secondary_count = (result.blue.secondary_penalty_total + result.red.secondary_penalty_total) // SECONDARY_ROLE_PENALTY
+    off_role_count = (result.blue.off_role_penalty_total + result.red.off_role_penalty_total) // OFF_ROLE_PENALTY
+    return int(secondary_count + (2 * off_role_count))
 
 
 def _fit_label(penalty: int) -> str:
@@ -412,6 +448,8 @@ def _format_draft_message(result: DraftResult) -> str:
     blue_avg = result.blue.adjusted_total_elo / len(result.blue.assignments)
     red_avg = result.red.adjusted_total_elo / len(result.red.assignments)
     diff = abs(blue_avg - red_avg)
+    role_metric = _role_metric_for_draft(result)
+    adjusted_gap = abs(result.blue.adjusted_total_elo - result.red.adjusted_total_elo)
     lines = [
         "```text",
         _format_team_table("Blue Team", result.blue),
@@ -419,6 +457,7 @@ def _format_draft_message(result: DraftResult) -> str:
         _format_team_table("Red Team", result.red),
         "",
         f"Adjusted average gap: {diff:.1f}",
+        f"Debug: role metric={role_metric}, adjusted gap={adjusted_gap}",
         f"Handicap: secondary -{SECONDARY_ROLE_PENALTY}, off-role -{OFF_ROLE_PENALTY}",
         "```",
     ]

@@ -117,3 +117,16 @@
   - `tests/test_elo_query.py` (private hiding + contiguous public ranks)
   - `tests/test_elo_table_formatting.py` (privacy messaging, private-caller restrictions)
   - `tests/test_match_commands.py` (`champsplayer private` usage/permission cases)
+- Updated draft randomization in `champs/draft.py`:
+  - reverted prior split-slack (`secondary/off-role`) sampling approach
+  - introduced role-priority metric (`secondary_count * 1 + off_role_count * 2`)
+  - grouped candidates by metric and accumulated buckets until target candidate count is reached
+  - weighted sampling now prefers lower-metric buckets via rank-decay weighting
+- Added dynamic metric-based adjusted-gap guardrails in draft sampling:
+  - per-metric `allowed_gap = max(min_gap, max_gap - metric * step)`
+  - configurable constants for target bucket size, decay, min/max gap, and step
+  - fallback to selected metric buckets if guardrails over-filter
+- Added draft diagnostics in output formatting:
+  - message now includes debug line with selected `role metric` and `adjusted gap`
+- Verified draft behavior with existing suite:
+  - `poetry run pytest -q tests/test_draft.py` (`17 passed`)
