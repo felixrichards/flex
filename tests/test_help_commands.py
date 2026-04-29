@@ -37,6 +37,14 @@ def test_help_for_command_and_prefixed_command() -> None:
     assert "`champsfearless` commands:" in ctx.messages[1][0]
 
 
+def test_help_for_role_command() -> None:
+    ctx = _FakeCtx()
+
+    asyncio.run(help_route.handle_help(ctx, ("role",)))
+
+    assert ctx.messages[0][0].startswith("`champsrole`")
+
+
 def test_help_unknown_command() -> None:
     ctx = _FakeCtx()
 

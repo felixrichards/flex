@@ -306,6 +306,44 @@ def set_player_preferred_role(db_path: str, username: str, preferred_role: str) 
         session.commit()
 
 
+def set_player_roles(db_path: str, identifier: str, primary_role: str, secondary_role: str | None = None) -> str:
+    normalized_primary = RoleFilter.sanitise_filter(primary_role)
+    normalized_secondary = RoleFilter.sanitise_filter(secondary_role) if secondary_role else None
+    engine = _engine(db_path)
+    with Session(engine) as session:
+        resolved_name = resolve_player_identifier_for_link_with_session(session, identifier)
+        if resolved_name is None:
+            raise ValueError(f"Unknown player: {identifier}")
+
+        latest_username_for_name = session.scalar(
+            select(PlayerMappingRecord.username)
+            .where(func.lower(PlayerMappingRecord.name) == resolved_name.casefold())
+            .order_by(PlayerMappingRecord.id.desc())
+        )
+        role_username = latest_username_for_name or resolved_name
+
+        role_rows_for_name = session.scalars(
+            select(PlayerMappingRecord).where(
+                func.lower(PlayerMappingRecord.name) == resolved_name.casefold(),
+                PlayerMappingRecord.preferred_role.is_not(None),
+            )
+        ).all()
+        for row in role_rows_for_name:
+            row.preferred_role = None
+            row.secondary_role = None
+
+        session.add(
+            PlayerMappingRecord(
+                username=role_username,
+                name=resolved_name,
+                preferred_role=normalized_primary,
+                secondary_role=normalized_secondary,
+            )
+        )
+        session.commit()
+        return resolved_name
+
+
 def set_discord_player_mapping(db_path: str, discord_user_id: int | str, player_username: str) -> None:
     normalized_user_id = str(discord_user_id).strip()
     normalized_username = player_username.strip()

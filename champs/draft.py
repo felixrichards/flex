@@ -181,7 +181,9 @@ def _resolve_player_identifier(identifier: str, state: _ResolverState) -> DraftP
     token_key = token.casefold()
     canonical_name = state.canonical_name_by_casefold.get(token_key)
     if canonical_name is None:
-        canonical_name = state.latest_name_by_username.get(token_key, token)
+        canonical_name = state.latest_name_by_username.get(token_key)
+    if canonical_name is None:
+        return None
 
     name_key = canonical_name.casefold()
     elo = state.rating_by_name_casefold.get(name_key, db.INITIAL_RATING)
@@ -587,12 +589,18 @@ def _resolve_draft_players(
     unknown_usernames: list[str] = []
     missing_roles_by_name: dict[str, MappingRule] = {}
     for token in merged_tokens:
-        rule = _resolve_mapping_rule(token, resolver_state)
-        if rule is None:
+        player = _resolve_player_identifier(token, resolver_state)
+        if player is None:
             unknown_usernames.append(token)
             continue
-        if not rule.primary_role or not rule.secondary_role:
-            missing_roles_by_name[rule.name.casefold()] = rule
+        if not player.primary_role or not player.secondary_role:
+            rule = _resolve_mapping_rule(token, resolver_state) or MappingRule(
+                username=token,
+                name=player.name,
+                primary_role=player.primary_role,
+                secondary_role=player.secondary_role,
+            )
+            missing_roles_by_name[player.name.casefold()] = rule
 
     missing_roles = list(missing_roles_by_name.values())
 

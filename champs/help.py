@@ -5,6 +5,7 @@ from champs.forcedodge import HELP as FORCEDODGE_HELP
 from champs.get import HELP as GET_HELP
 from champs.match import HELP as MATCH_HELP
 from champs.player import HELP as PLAYER_HELP
+from champs.role import HELP as ROLE_HELP
 
 GENERAL_HELP = """`champshelp` usage:
 
@@ -18,6 +19,7 @@ Commands:
 - `get`: random champion generation
 - `match`: parse/save/delete scoreboard matches
 - `player`: manage player mappings + Discord links
+- `role`: set your own linked player roles
 - `elo`: show ELO leaderboard
 - `draft`: build balanced teams
 - `dodge`: submit a dodge for current draft
@@ -45,6 +47,7 @@ COMMAND_HELP = {
     "get": GET_HELP,
     "match": MATCH_HELP,
     "player": PLAYER_HELP,
+    "role": ROLE_HELP,
     "elo": ELO_HELP,
     "draft": DRAFT_HELP,
     "dodge": "Use `/dodge` for ephemeral dodge submissions, or `champsdodge` (DM confirmation).",

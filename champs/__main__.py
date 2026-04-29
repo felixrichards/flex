@@ -13,6 +13,7 @@ from champs.get import handle_get
 from champs.help import handle_help
 from champs.match import handle_match, handle_on_message
 from champs.player import handle_player
+from champs.role import handle_role
 
 load_dotenv()
 
@@ -41,6 +42,13 @@ async def match(ctx, *args):
 @bot.command()
 async def player(ctx, *args):
     await handle_player(ctx, args, DB_PATH)
+
+
+# `champsrole <mainrole> [secondaryrole]`
+# Sets the caller's linked player's role preferences.
+@bot.command()
+async def role(ctx, *args):
+    await handle_role(ctx, args, DB_PATH)
 
 
 # `champselo [player_or_username ...]`
