@@ -424,10 +424,10 @@ def _build_draft(
 
 
 def _role_metric_for_draft(result: DraftResult) -> int:
-    # Role-priority metric: +1 per secondary assignment, +2 per off-role assignment.
+    # Role-priority metric: +1 per secondary assignment, +3 per off-role assignment.
     secondary_count = (result.blue.secondary_penalty_total + result.red.secondary_penalty_total) // SECONDARY_ROLE_PENALTY
     off_role_count = (result.blue.off_role_penalty_total + result.red.off_role_penalty_total) // OFF_ROLE_PENALTY
-    return int(secondary_count + (2 * off_role_count))
+    return int(secondary_count + (3 * off_role_count))
 
 
 def _fit_label(penalty: int) -> str:
