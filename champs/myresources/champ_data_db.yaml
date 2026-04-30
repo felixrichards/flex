@@ -808,7 +808,7 @@ champions:
     roles:
       - SUPP
   - name: Lillia
-    complexion: 0
+    complexion: 1
     classes:
       - Slayer
       - Skirmisher
