@@ -23,7 +23,7 @@ champions:
     roles:
       - MID
   - name: Akali
-    complexion: 1
+    complexion: 2
     classes:
       - Assassin
       - Slayer
