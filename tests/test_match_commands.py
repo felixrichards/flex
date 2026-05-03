@@ -14,7 +14,7 @@ class _FakeCtx:
         self.messages.append(message)
 
 
-def test_handle_player_add_preserves_primary_secondary_order(monkeypatch) -> None:
+def test_handle_player_add_maps_username_to_name_only(monkeypatch) -> None:
     calls: list[tuple[str, str, str | None, str | None]] = []
 
     def _fake_set_player_mapping(_db_path, username, name, primary_role=None, secondary_role=None):
@@ -27,10 +27,26 @@ def test_handle_player_add_preserves_primary_secondary_order(monkeypatch) -> Non
     monkeypatch.setattr(player.asyncio, "to_thread", _fake_to_thread)
 
     ctx = _FakeCtx()
-    asyncio.run(player._handle_player_add(ctx, ["MaBalls", "Felix", "adc", "top"], "/tmp/test.db"))
+    asyncio.run(player._handle_player_add(ctx, ["MaBalls", "Felix"], "/tmp/test.db"))
 
-    assert calls == [("MaBalls", "Felix", "adc", "top")]
-    assert ctx.messages == ["Saved mapping: `MaBalls` -> `Felix` for roles `adc`/`top`"]
+    assert calls == [("MaBalls", "Felix", None, None)]
+    assert ctx.messages == ["Saved mapping: `MaBalls` -> `Felix`"]
+
+
+def test_handle_player_add_rejects_extra_tokens(monkeypatch) -> None:
+    called = {"set": False}
+
+    async def _fake_to_thread(func, *args, **kwargs):
+        called["set"] = True
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr(player.asyncio, "to_thread", _fake_to_thread)
+
+    ctx = _FakeCtx()
+    asyncio.run(player._handle_player_add(ctx, ["username", "player", "mid", "adlane"], "/tmp/test.db"))
+
+    assert called["set"] is False
+    assert ctx.messages == ["Usage: `champsplayer add <username> <name>`"]
 
 
 def test_handle_player_delete_requires_name() -> None:
