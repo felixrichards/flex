@@ -14,7 +14,8 @@ from typing import Any
 import cv2
 from rapidocr_onnxruntime import RapidOCR
 
-from ..myresources import CHAMPS_PLAYERS_MANIFEST
+from ..db import db
+from ..myresources import CHAMPS, CHAMPS_PLAYERS_MANIFEST
 
 
 KDA_RE = re.compile(r"[Xx]?\s*(\d+)\s*/\s*(\d+)\s*/\s*(\d+)")
@@ -44,6 +45,20 @@ def normalize_text(text: str) -> str:
 
 def normalize_for_match(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", text.lower())
+
+
+def normalize_for_confusable_match(text: str) -> str:
+    normalized = normalize_for_match(text)
+    return normalized.translate(str.maketrans({"l": "i", "1": "i"}))
+
+
+def similarity_score(left: str, right: str) -> float:
+    exact = SequenceMatcher(a=left, b=right).ratio()
+    confusable = SequenceMatcher(
+        a=normalize_for_confusable_match(left),
+        b=normalize_for_confusable_match(right),
+    ).ratio()
+    return max(exact, confusable)
 
 
 def normalize_path(path: str | Path) -> str:
@@ -95,14 +110,21 @@ class RapidPostExtractor:
         return [box.text for box in self.read_boxes(processed) if box.text]
 
 
-def load_manifest() -> tuple[set[str], set[str]]:
-    player_vocab: set[str] = set()
-    champion_vocab: set[str] = set()
+def load_vocabulary(db_path: str | None = None) -> tuple[set[str], set[str]]:
+    champion_vocab = {normalize_text(champion) for champion in CHAMPS if normalize_text(champion)}
 
-    data = CHAMPS_PLAYERS_MANIFEST
+    resolved_db_path = db_path or os.getenv("CHAMPS_DB_PATH")
+    if resolved_db_path:
+        try:
+            usernames = db.get_known_usernames(normalize_path(resolved_db_path))
+            player_vocab = {normalize_text(username) for username in usernames if normalize_text(username)}
+            if player_vocab:
+                return player_vocab, champion_vocab
+        except Exception:
+            pass
 
-    player_vocab.update(normalize_text(player) for player in data.get("players", []) if normalize_text(player))
-    champion_vocab.update(normalize_text(champion) for champion in data.get("champions", []) if normalize_text(champion))
+    fallback_players = CHAMPS_PLAYERS_MANIFEST.get("players", [])
+    player_vocab = {normalize_text(player) for player in fallback_players if normalize_text(player)}
     return player_vocab, champion_vocab
 
 
@@ -116,7 +138,7 @@ def fuzzy_match(text: str, vocabulary: set[str], threshold: float = 0.7) -> str:
     lowered = normalize_for_match(candidate)
     for item in vocabulary:
         lowered_item = normalize_for_match(item)
-        score = SequenceMatcher(a=lowered, b=lowered_item).ratio()
+        score = similarity_score(lowered, lowered_item)
         if score > best_score:
             best = item
             best_score = score
@@ -220,7 +242,7 @@ def best_row_match(
         best_vocab = candidate
         if vocabulary:
             for item in vocabulary:
-                score = SequenceMatcher(a=normalized, b=normalize_for_match(item)).ratio()
+                score = similarity_score(normalized, normalize_for_match(item))
                 if score > raw_sim:
                     raw_sim = score
                     best_vocab = item
@@ -323,6 +345,7 @@ def build_team(
 
 def detect_post_match(
     image_path: str | Path,
+    db_path: str | None = None,
     extractor: RapidPostExtractor | None = None,
 ) -> dict[str, Any]:
     image_path = normalize_path(image_path)
@@ -332,7 +355,7 @@ def detect_post_match(
 
     extractor = extractor or RapidPostExtractor()
     full_boxes = extractor.read_boxes(image_path)
-    player_vocab, champion_vocab = load_manifest()
+    player_vocab, champion_vocab = load_vocabulary(db_path)
 
     kda_rows = collect_kda_rows(full_boxes, image.shape[1])
     top_rows, bottom_rows = split_rows(kda_rows)

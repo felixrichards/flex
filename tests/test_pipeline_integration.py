@@ -13,7 +13,7 @@ def test_parse_to_db_pipeline_with_duplicate_guard(tmp_path) -> None:
     db.init_db(db_path)
 
     image_path = resource_path("scoreboards", "1.png")
-    parsed = scoreboard_cv.detect_post_match(str(image_path))
+    parsed = scoreboard_cv.detect_post_match(str(image_path), db_path=db_path)
     match = Match.model_validate(parsed)
 
     assert db.insert_match(db_path, match) is True
