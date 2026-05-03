@@ -515,6 +515,13 @@ def get_discord_player_mappings(db_path: str, discord_user_ids: list[int] | list
     return {row.discord_user_id: row.player_username for row in rows}
 
 
+def get_known_usernames(db_path: str) -> set[str]:
+    engine = _engine(db_path)
+    with Session(engine) as session:
+        rows = session.scalars(select(PlayerMappingRecord.username).distinct()).all()
+    return {row for row in rows if row}
+
+
 def resolve_player_identifier_for_link(db_path: str, identifier: str) -> str | None:
     engine = _engine(db_path)
     with Session(engine) as session:

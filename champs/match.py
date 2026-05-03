@@ -91,7 +91,7 @@ async def _append_correction_prompt(interaction: discord.Interaction) -> str:
     )
 
 
-async def _read_attachment_to_match(ctx) -> Match | None:
+async def _read_attachment_to_match(ctx, db_path: str) -> Match | None:
     if not ctx.message.attachments:
         return None
 
@@ -107,7 +107,7 @@ async def _read_attachment_to_match(ctx) -> Match | None:
         tmp_path = tmp.name
 
     try:
-        result = await asyncio.to_thread(scoreboard_cv.detect_post_match, tmp_path)
+        result = await asyncio.to_thread(scoreboard_cv.detect_post_match, tmp_path, db_path)
     except Exception as exc:
         await ctx.send(f"Scoreboard parse failed: {exc}")
         return None
@@ -121,7 +121,7 @@ async def _read_attachment_to_match(ctx) -> Match | None:
 
 
 async def _read_attachment_to_display_match(ctx, db_path: str) -> Match | None:
-    raw_match = await _read_attachment_to_match(ctx)
+    raw_match = await _read_attachment_to_match(ctx, db_path)
     if raw_match is None:
         return None
     return await asyncio.to_thread(db.resolve_match_names, db_path, raw_match)
@@ -155,7 +155,7 @@ async def _handle_match_delete(ctx, args, db_path: str) -> None:
         if not ctx.message.attachments:
             await ctx.send("Attach a scoreboard image or pass JSON: `champsmatch delete \"<json>\"`.")
             return
-        match = await _read_attachment_to_match(ctx)
+        match = await _read_attachment_to_match(ctx, db_path)
         if match is None:
             return
 
