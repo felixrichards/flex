@@ -33,7 +33,15 @@ async def get(ctx, *args):
 # Parse/confirm scoreboard matches and maintain mappings/history.
 # Subcommands: `help`, `delete` (with screenshot), or default parse flow.
 @bot.command()
-async def match(ctx, *args):
+async def match(ctx, *, raw_args: str = ""):
+    text = raw_args.strip()
+    if not text:
+        args: tuple[str, ...] = ()
+    else:
+        parts = text.split(maxsplit=1)
+        subcommand = parts[0]
+        rest = parts[1] if len(parts) > 1 else ""
+        args = (subcommand, rest) if rest else (subcommand,)
     await handle_match(ctx, args, DB_PATH)
 
 

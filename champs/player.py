@@ -6,9 +6,10 @@ from champs.db import db
 
 HELP = """`champsplayer` commands:
 
-- `champsplayer add <username> <name> [primary_role] [secondary_role]`
-  Add a username -> name mapping, optionally scoped by roles.
-  Example: `champsplayer add MaBalls Felix adc top`
+- `champsplayer add <username> <name>`
+  Add a username -> name mapping.
+  Example: `champsplayer add MaBalls Felix`
+  If name contains spaces, quote it (for example `champsplayer add MaBalls "Felix Jr"`).
 
 - `champsplayer delete <name>`
   Delete a player from DB only if they have zero matches (removes mappings, Discord links, and player row).
@@ -70,42 +71,20 @@ async def _handle_player_help(ctx) -> None:
 
 
 async def _handle_player_add(ctx, args, db_path: str) -> None:
-    if len(args) < 2:
-        await ctx.send("Usage: `champsplayer add <username> <name> [primary_role] [secondary_role]`")
+    if len(args) != 2:
+        await ctx.send("Usage: `champsplayer add <username> <name>`")
         return
     username = args[0].strip()
-    primary_role = args[-2] if len(args) >= 4 else (args[-1] if len(args) >= 3 else None)
-    secondary_role = args[-1] if len(args) >= 4 else None
-    if secondary_role:
-        name = " ".join(args[1:-2]).strip()
-    elif primary_role:
-        name = " ".join(args[1:-1]).strip()
-    else:
-        name = " ".join(args[1:]).strip()
+    name = args[1].strip()
     if not name:
-        await ctx.send("Usage: `champsplayer add <username> <name> [primary_role] [secondary_role]`")
+        await ctx.send("Usage: `champsplayer add <username> <name>`")
         return
     try:
-        await asyncio.to_thread(db.set_player_mapping, db_path, username, name, primary_role, secondary_role)
+        await asyncio.to_thread(db.set_player_mapping, db_path, username, name, None, None)
     except Exception as exc:
-        if primary_role:
-            fallback_name = " ".join(args[1:]).strip()
-            if fallback_name:
-                try:
-                    await asyncio.to_thread(db.set_player_mapping, db_path, username, fallback_name, None)
-                except Exception as fallback_exc:
-                    await ctx.send(f"Could not save player mapping: {fallback_exc}")
-                    return
-                await ctx.send(f"Saved mapping: `{username}` -> `{fallback_name}`")
-                return
         await ctx.send(f"Could not save player mapping: {exc}")
         return
-    role_suffix = ""
-    if primary_role and secondary_role:
-        role_suffix = f" for roles `{primary_role}`/`{secondary_role}`"
-    elif primary_role:
-        role_suffix = f" for role `{primary_role}`"
-    await ctx.send(f"Saved mapping: `{username}` -> `{name}`{role_suffix}")
+    await ctx.send(f"Saved mapping: `{username}` -> `{name}`")
 
 
 async def _handle_player_delete(ctx, args, db_path: str) -> None:
@@ -187,7 +166,7 @@ async def _handle_player_linkdiscord(ctx, args, db_path: str) -> None:
     if resolved_player_name is None:
         await ctx.send(
             f"Could not resolve `{player_identifier}` to a known player. "
-            "Use `champsplayer add <username> <name> <primary_role> <secondary_role>` first."
+            "Use `champsplayer add <username> <name>` first."
         )
         return
 
