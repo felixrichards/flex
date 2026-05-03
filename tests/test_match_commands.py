@@ -8,6 +8,7 @@ from champs import player
 class _FakeCtx:
     def __init__(self) -> None:
         self.messages: list[str] = []
+        self.message = SimpleNamespace(attachments=[])
 
     async def send(self, message: str) -> None:
         self.messages.append(message)
@@ -295,3 +296,48 @@ def test_handle_on_message_corrected_payload_is_saved(monkeypatch) -> None:
     assert referenced.edited_content == "formatted scoreboard"
     assert channel.sent[-1].startswith("Updated and saved.")
     assert 999 not in match.PENDING_MATCHES
+
+
+def test_handle_match_delete_json_deletes_by_checksum(monkeypatch) -> None:
+    async def _fake_to_thread(func, *args, **kwargs):
+        return func(*args, **kwargs)
+
+    seen_checksums: list[str] = []
+
+    def _fake_delete(_db_path, checksum):
+        seen_checksums.append(checksum)
+        return True
+
+    monkeypatch.setattr(match.asyncio, "to_thread", _fake_to_thread)
+    monkeypatch.setattr(match.db, "delete_match", _fake_delete)
+
+    ctx = _FakeCtx()
+    payload = '{"win":[{"player":"a","champion":"Ahri","kda":"1/1/1"},{"player":"b","champion":"Ashe","kda":"1/1/1"},{"player":"c","champion":"Garen","kda":"1/1/1"},{"player":"d","champion":"Lux","kda":"1/1/1"},{"player":"e","champion":"Sona","kda":"1/1/1"}],"lose":[{"player":"f","champion":"Zed","kda":"1/1/1"},{"player":"g","champion":"Jinx","kda":"1/1/1"},{"player":"h","champion":"Teemo","kda":"1/1/1"},{"player":"i","champion":"Riven","kda":"1/1/1"},{"player":"j","champion":"Nami","kda":"1/1/1"}]}'
+
+    asyncio.run(match.handle_match(ctx, ("delete", payload), "/tmp/test.db"))
+
+    assert len(seen_checksums) == 1
+    assert seen_checksums[0]
+    assert ctx.messages == ["Deleted match from history."]
+
+
+def test_handle_match_delete_json_invalid_payload(monkeypatch) -> None:
+    called = {"delete": False}
+
+    async def _fake_to_thread(func, *args, **kwargs):
+        called["delete"] = True
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr(match.asyncio, "to_thread", _fake_to_thread)
+
+    ctx = _FakeCtx()
+    asyncio.run(match.handle_match(ctx, ("delete", '{"win":[],"lose":[]}'), "/tmp/test.db"))
+
+    assert called["delete"] is False
+    assert ctx.messages == ["Delete JSON not recognized. Expect valid JSON with `win`/`lose` arrays of 5 rows each."]
+
+
+def test_handle_match_delete_requires_attachment_or_json() -> None:
+    ctx = _FakeCtx()
+    asyncio.run(match.handle_match(ctx, ("delete",), "/tmp/test.db"))
+    assert ctx.messages == ['Attach a scoreboard image or pass JSON: `champsmatch delete "<json>"`.']

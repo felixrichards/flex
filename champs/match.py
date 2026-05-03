@@ -19,7 +19,10 @@ HELP = """`champsmatch` commands:
   Attach a scoreboard image to parse and review.
 
 - `champsmatch delete`
-  Attach a scoreboard image to delete the matching match from history."""
+  Attach a scoreboard image to delete the matching match from history.
+
+- `champsmatch delete "<json>"`
+  Delete a match directly from JSON payload (same `win`/`lose` shape)."""
 
 
 PENDING_MATCHES: dict[int, Match] = {}
@@ -128,13 +131,34 @@ async def _handle_match_help(ctx) -> None:
     await ctx.send(HELP)
 
 
-async def _handle_match_delete(ctx, db_path: str) -> None:
-    if not ctx.message.attachments:
-        await ctx.send("Attach a scoreboard image and run `champsmatch delete`.")
-        return
-    match = await _read_attachment_to_match(ctx)
-    if match is None:
-        return
+def _parse_match_delete_json(text: str) -> Match | None:
+    payload = extract_json_payload(text)
+    if payload is None:
+        try:
+            payload = json.loads(text)
+        except Exception:
+            return None
+    return _parse_match_payload(payload)
+
+
+async def _handle_match_delete(ctx, args, db_path: str) -> None:
+    match = None
+    if args:
+        json_text = " ".join(args).strip()
+        match = _parse_match_delete_json(json_text)
+        if match is None:
+            await ctx.send(
+                "Delete JSON not recognized. Expect valid JSON with `win`/`lose` arrays of 5 rows each."
+            )
+            return
+    else:
+        if not ctx.message.attachments:
+            await ctx.send("Attach a scoreboard image or pass JSON: `champsmatch delete \"<json>\"`.")
+            return
+        match = await _read_attachment_to_match(ctx)
+        if match is None:
+            return
+
     deleted = await asyncio.to_thread(db.delete_match, db_path, match.checksum or "")
     if deleted:
         await ctx.send("Deleted match from history.")
@@ -170,7 +194,7 @@ async def handle_match(ctx, args, db_path: str) -> None:
         await _handle_match_help(ctx)
         return
     if subcommand == "delete":
-        await _handle_match_delete(ctx, db_path)
+        await _handle_match_delete(ctx, args[1:], db_path)
         return
     if subcommand != "parse":
         await _handle_match_help(ctx)
