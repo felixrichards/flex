@@ -69,8 +69,8 @@ champions:
     gender: FEMALE
     lgbt: NONLGBT
     roles:
+      - TOP
       - JUNGLE
-      - MID
   - name: Amumu
     complexion: 0
     classes:
@@ -92,6 +92,7 @@ champions:
     gender: FEMALE
     lgbt: NONLGBT
     roles:
+      - TOP
       - MID
   - name: Annie
     complexion: 1
@@ -146,7 +147,6 @@ champions:
     gender: FEMALE
     lgbt: NONLGBT
     roles:
-      - TOP
       - MID
   - name: Azir
     complexion: 0
@@ -202,8 +202,8 @@ champions:
     gender: MALE
     lgbt: NONLGBT
     roles:
-      - JUNGLE
       - MID
+      - BOT
       - SUPP
   - name: Braum
     complexion: 1
@@ -278,7 +278,6 @@ champions:
     gender: MALE
     lgbt: NONLGBT
     roles:
-      - MID
       - BOT
   - name: Darius
     complexion: 1
@@ -316,7 +315,6 @@ champions:
     lgbt: NONLGBT
     roles:
       - TOP
-      - JUNGLE
   - name: Draven
     complexion: 1
     classes:
@@ -456,8 +454,6 @@ champions:
     lgbt: NONLGBT
     roles:
       - TOP
-      - JUNGLE
-      - MID
   - name: Graves
     complexion: 1
     classes:
@@ -500,7 +496,6 @@ champions:
     lgbt: NONLGBT
     roles:
       - TOP
-      - MID
   - name: Hwei
     complexion: 1
     classes:
@@ -534,6 +529,7 @@ champions:
     lgbt: NONLGBT
     roles:
       - TOP
+      - MID
   - name: Ivern
     complexion: 0
     classes:
@@ -592,6 +588,7 @@ champions:
     lgbt: NONLGBT
     roles:
       - TOP
+      - JUNGLE
   - name: Jhin
     complexion: 1
     classes:
@@ -673,6 +670,7 @@ champions:
     lgbt: NONLGBT
     roles:
       - JUNGLE
+      - BOT
   - name: Kassadin
     complexion: 0
     classes:
@@ -874,7 +872,6 @@ champions:
     lgbt: NONLGBT
     roles:
       - TOP
-      - JUNGLE
   - name: Malzahar
     complexion: 2
     classes:
@@ -907,6 +904,7 @@ champions:
     gender: MALE
     lgbt: NONLGBT
     roles:
+      - TOP
       - JUNGLE
   - name: Mel
     complexion: 3
@@ -919,7 +917,7 @@ champions:
     lgbt: NONLGBT
     roles:
       - MID
-      - AD
+      - BOT
       - SUPP
   - name: Milio
     complexion: 2
@@ -974,8 +972,8 @@ champions:
     gender: FEMALE
     lgbt: NONLGBT
     roles:
-      - MID
       - JUNGLE
+      - MID
   - name: Nami
     complexion: 0
     classes:
@@ -998,7 +996,6 @@ champions:
     lgbt: NONLGBT
     roles:
       - TOP
-      - JUNGLE
   - name: Nautilus
     complexion: 0
     classes:
@@ -1147,8 +1144,8 @@ champions:
     gender: FEMALE
     lgbt: NONLGBT
     roles:
-      - MID
       - JUNGLE
+      - MID
   - name: Quinn
     complexion: 1
     classes:
@@ -1159,6 +1156,7 @@ champions:
     lgbt: NONLGBT
     roles:
       - TOP
+      - JUNGLE
   - name: Rakan
     complexion: 1
     classes:
@@ -1317,6 +1315,7 @@ champions:
     gender: FEMALE
     lgbt: NONLGBT
     roles:
+      - BOT
       - SUPP
   - name: Sett
     complexion: 1
@@ -1342,6 +1341,7 @@ champions:
     lgbt: NONLGBT
     roles:
       - JUNGLE
+      - SUPP
   - name: Shen
     complexion: 1
     classes:
@@ -1353,7 +1353,6 @@ champions:
     lgbt: NONLGBT
     roles:
       - TOP
-      - JUNGLE
   - name: Shyvana
     complexion: 1
     classes:
@@ -1388,7 +1387,6 @@ champions:
     lgbt: NONLGBT
     roles:
       - TOP
-      - MID
   - name: Sivir
     complexion: 1
     classes:
@@ -1453,7 +1451,6 @@ champions:
     gender: MALE
     lgbt: NONLGBT
     roles:
-      - MID
       - BOT
       - SUPP
   - name: Sylas
@@ -1468,6 +1465,7 @@ champions:
     gender: MALE
     lgbt: NONLGBT
     roles:
+      - TOP
       - JUNGLE
       - MID
   - name: Syndra
@@ -1571,7 +1569,6 @@ champions:
     lgbt: NONLGBT
     roles:
       - TOP
-      - JUNGLE
   - name: Tryndamere
     complexion: 1
     classes:
@@ -1642,7 +1639,7 @@ champions:
     gender: MALE
     lgbt: LGBT
     roles:
-      - MID
+      - TOP
       - BOT
   - name: Vayne
     complexion: 1
@@ -1666,7 +1663,6 @@ champions:
     lgbt: NONLGBT
     roles:
       - MID
-      - BOT
   - name: Vel'Koz
     complexion: 0
     classes:
@@ -1771,6 +1767,7 @@ champions:
     gender: MALE
     lgbt: NONLGBT
     roles:
+      - TOP
       - JUNGLE
   - name: Xayah
     complexion: 1
@@ -1804,7 +1801,9 @@ champions:
     gender: MALE
     lgbt: NONLGBT
     roles:
+      - TOP
       - JUNGLE
+      - MID
   - name: Yasuo
     complexion: 1
     classes:
@@ -1842,6 +1841,16 @@ champions:
     lgbt: NONLGBT
     roles:
       - TOP
+  - name: Yunara
+    complexion: 1
+    classes:
+      - Marksman
+    damage:
+      - AD
+    gender: FEMALE
+    lgbt: NONLGBT
+    roles:
+      - BOT
   - name: Yuumi
     complexion: 0
     classes:
@@ -1853,6 +1862,17 @@ champions:
     lgbt: NONLGBT
     roles:
       - SUPP
+  - name: Zaahen
+    complexion: 0
+    classes:
+      - Skirmisher
+      - Fighter
+    damage:
+      - AD
+    gender: MALE
+    lgbt: NONLGBT
+    roles:
+      - TOP
   - name: Zac
     complexion: 0
     classes:
@@ -1863,7 +1883,6 @@ champions:
     gender: MALE
     lgbt: NONLGBT
     roles:
-      - TOP
       - JUNGLE
   - name: Zed
     complexion: 0
@@ -1897,7 +1916,6 @@ champions:
     gender: MALE
     lgbt: NONLGBT
     roles:
-      - MID
       - BOT
   - name: Zilean
     complexion: 1
@@ -1908,7 +1926,6 @@ champions:
     gender: MALE
     lgbt: NONLGBT
     roles:
-      - MID
       - SUPP
   - name: Zoe
     complexion: 1
@@ -1931,5 +1948,4 @@ champions:
     gender: FEMALE
     lgbt: NONLGBT
     roles:
-      - JUNGLE
       - SUPP
