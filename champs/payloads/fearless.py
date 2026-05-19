@@ -21,7 +21,7 @@ class FearlessMatch(BaseModel):
 
 
 class FearlessState(BaseModel):
-    enabled: bool = False
+    enabled: bool = True
     start: datetime | None = None
     banned: list[str] = Field(default_factory=list)
     matches: list[FearlessMatch] = Field(default_factory=list)

@@ -120,7 +120,7 @@ def _get_state(channel_id: int, *, create: bool, now: datetime | None = None) ->
 
 
 def get_fearless_bans(channel_id: int, *, now: datetime | None = None) -> list[str]:
-    state = _get_state(channel_id, create=False, now=now)
+    state = _get_state(channel_id, create=True, now=now)
     if state is None or not state.enabled:
         return []
     return list(state.banned)
@@ -128,7 +128,7 @@ def get_fearless_bans(channel_id: int, *, now: datetime | None = None) -> list[s
 
 def record_match_champions(channel_id: int, champions: list[str], *, now: datetime | None = None) -> tuple[bool, str]:
     now = now or _utc_now()
-    state = _get_state(channel_id, create=False, now=now)
+    state = _get_state(channel_id, create=True, now=now)
     if state is None or not state.enabled:
         return False, ""
 
@@ -164,9 +164,8 @@ def record_match_champions(channel_id: int, champions: list[str], *, now: dateti
 
 def _status_text(channel_id: int, now: datetime | None = None) -> str:
     now = now or _utc_now()
-    state = _get_state(channel_id, create=False, now=now)
-    if state is None:
-        return "Fearless is not configured in this channel. Use `champsfearless enable` to start."
+    state = _get_state(channel_id, create=True, now=now)
+    assert state is not None
 
     enabled_text = "enabled" if state.enabled else "disabled"
     lines = [
