@@ -38,7 +38,7 @@ def test_handle_fearless_enable_add_remove_and_list() -> None:
     asyncio.run(fearless.handle_fearless(ctx, ("remove", "Ahri")))
     asyncio.run(fearless.handle_fearless(ctx, ("list",)))
 
-    assert "Fearless enabled in this channel." in ctx.messages[0][0]
+    assert "Fearless is already enabled." in ctx.messages[0][0]
     assert "Added 2 champion(s)" in ctx.messages[1][0]
     assert "Removed 1 champion(s)" in ctx.messages[2][0]
     assert ctx.messages[3][0] == "Nunu & Willump"
